@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, Building2 } from 'lucide-react';
+import { Home, Building2 } from 'lucide-react';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -12,11 +12,6 @@ export default function Navigation() {
       href: '/',
       label: 'Dashboard',
       icon: Home
-    },
-    {
-      href: '/single-account',
-      label: 'Single Account',
-      icon: Users
     },
     {
       href: '/organization',

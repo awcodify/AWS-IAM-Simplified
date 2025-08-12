@@ -4,16 +4,11 @@ A simplified web dashboard for AWS IAM management that helps you easily understa
 
 ## 🎯 Purpose
 
-Managing IAM in AWS Organizations can be complex, especially when you need to understand cross-account access. This dashboard simplifies the process by providing both single-account and organization-wide views:
+Managing IAM in AWS Organizations can be complex, especially when you need to understand cross-account access. This dashboard simplifies the process by providing an organization-wide view:
 
 **"What users exist across my organization and which accounts does user X have access to?"**
 
 ## ✨ Features
-
-- **Single Account View**
-  - View all IAM users in your current AWS account
-  - Click to see detailed permissions for any user
-  - Shows attached policies, inline policies, and group memberships
 
 - **Organization View** (Management Account)
   - List all accounts in your AWS Organization
@@ -81,33 +76,6 @@ npm run dev
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## 🔧 AWS Setup
-
-### For Single Account View
-
-Your AWS user/role needs these permissions:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "iam:ListUsers",
-        "iam:GetUser",
-        "iam:ListAttachedUserPolicies",
-        "iam:ListUserPolicies",
-        "iam:GetUserPolicy",
-        "iam:ListGroupsForUser",
-        "iam:GetGroup",
-        "iam:ListAttachedGroupPolicies",
-        "sts:GetCallerIdentity"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
 
 ### For Organization View (Management Account Only)
 
@@ -220,16 +188,13 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── account/route.ts          # Get AWS account info
-│   │   ├── users/route.ts            # List all IAM users
-│   │   ├── users/[username]/route.ts # Get user permissions
 │   │   └── organization/
 │   │       ├── accounts/route.ts     # List organization accounts
 │   │       └── users/route.ts        # Get organization-wide user access
 │   └── page.tsx                      # Main dashboard page
 ├── components/
-│   ├── UserList.tsx                  # Single account user listing
 │   ├── PermissionView.tsx            # Permission display component
-│   └── OrganizationUserList.tsx      # Organization-wide user view
+│   └── UserListContainer.tsx         # Organization-wide user view
 ├── lib/
 │   └── aws-service.ts                # AWS SDK wrapper
 └── types/

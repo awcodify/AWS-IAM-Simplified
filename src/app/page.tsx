@@ -6,7 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountInfo } from '@/types/aws';
-import { Users, Building2, ArrowRight, Zap } from 'lucide-react';
+import { Building2, ArrowRight, Zap } from 'lucide-react';
 
 export default function Dashboard() {
   const { awsRegion } = useRegion();
@@ -29,14 +29,6 @@ export default function Dashboard() {
 
   const dashboardCards = [
     {
-      title: 'Single Account View',
-      description: 'View and manage IAM users within a single AWS account. Analyze permissions and access patterns for individual users.',
-      icon: Users,
-      href: '/single-account',
-      color: 'bg-blue-500',
-      hoverColor: 'hover:bg-blue-600'
-    },
-    {
       title: 'Organization View',
       description: 'View and manage users across multiple accounts in your AWS organization. Get a comprehensive overview of cross-account access.',
       icon: Building2,
@@ -57,7 +49,7 @@ export default function Dashboard() {
         />
 
         {/* Dashboard Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {dashboardCards.map((card) => {
             const Icon = card.icon;
             return (
@@ -90,14 +82,14 @@ export default function Dashboard() {
         {/* Quick Start Guide */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Start Guide</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <div className="text-center">
               <div className="bg-blue-100 rounded-full p-3 w-12 h-12 mx-auto mb-3 flex items-center justify-center">
                 <span className="text-blue-600 font-semibold">1</span>
               </div>
-              <h3 className="font-medium text-gray-900 mb-2">Choose Your View</h3>
+              <h3 className="font-medium text-gray-900 mb-2">Access Organization View</h3>
               <p className="text-sm text-gray-600">
-                Select Single Account for individual account analysis or Organization for multi-account overview.
+                Go to Organization View to manage users across multiple AWS accounts and get insights into cross-account access patterns.
               </p>
             </div>
             <div className="text-center">
