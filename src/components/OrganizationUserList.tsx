@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Users, Building2, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Users, Building2, AlertCircle, Loader2 } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
+import UserListContainer from './UserListContainer';
 import type { OrganizationUser, OrganizationAccount } from '@/types/aws';
 
 export default function OrganizationUserList() {
@@ -140,27 +141,6 @@ export default function OrganizationUserList() {
       .finally(() => {
         setLoadingUserAccess(null);
       });
-  };
-
-  const getAccessStatusIcon = (hasAccess: boolean) => {
-    return hasAccess ? (
-      <CheckCircle className="w-4 h-4 text-green-500" />
-    ) : (
-      <XCircle className="w-4 h-4 text-red-500" />
-    );
-  };
-
-  const getAccessTypeColor = (accessType?: string) => {
-    switch (accessType) {
-      case 'IAM':
-        return 'bg-blue-100 text-blue-800';
-      case 'SSO':
-        return 'bg-green-100 text-green-800';
-      case 'AssumedRole':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
   };
 
   if (!hasDataBeenFetched && !loading) {
@@ -356,114 +336,13 @@ export default function OrganizationUserList() {
       </div>
 
       {/* Users List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="divide-y divide-gray-200">
-          {users.map((orgUser) => (
-            <div key={orgUser.user.UserId} className="p-6">
-              <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={() => handleUserClick(orgUser)}
-              >
-                <div className="flex items-center">
-                  <div className="bg-blue-100 rounded-full p-2 mr-3">
-                    <Users className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {orgUser.user.DisplayName || orgUser.user.UserName}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {orgUser.user.UserName}
-                    </p>
-                    {orgUser.user.Emails.length > 0 && (
-                      <p className="text-sm text-gray-400">
-                        {orgUser.user.Emails[0].Value}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400">
-                      Home Account: {orgUser.homeAccountId}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {loadingUserAccess === orgUser.user.UserId ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                  ) : orgUser.accountAccess.length > 0 ? (
-                    <span className="text-sm text-gray-500">
-                      {orgUser.accountAccess.filter(a => a.hasAccess).length} / {orgUser.accountAccess.length} accounts
-                    </span>
-                  ) : (
-                    <span className="text-sm text-gray-400">
-                      Click to load access info
-                    </span>
-                  )}
-                  <svg 
-                    className={`w-5 h-5 transform transition-transform ${selectedUser === orgUser.user.UserId ? 'rotate-180' : ''}`}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-
-              {selectedUser === orgUser.user.UserId && (
-                <div className="mt-4 pl-12">
-                  {loadingUserAccess === orgUser.user.UserId ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span className="ml-2 text-gray-600">Loading account access...</span>
-                    </div>
-                  ) : orgUser.accountAccess.length > 0 ? (
-                    <>
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">Account Access</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {orgUser.accountAccess.map((access) => (
-                          <div 
-                            key={access.accountId}
-                            className="border rounded-lg p-3 bg-gray-50"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {access.accountName || access.accountId}
-                              </span>
-                              {getAccessStatusIcon(access.hasAccess)}
-                            </div>
-                            <div className="text-xs text-gray-500 mb-2">
-                              ID: {access.accountId}
-                            </div>
-                            {access.hasAccess && access.accessType && (
-                              <div className="mb-2">
-                                <span className={`inline-block px-2 py-1 text-xs rounded-full ${getAccessTypeColor(access.accessType)}`}>
-                                  {access.accessType}
-                                </span>
-                              </div>
-                            )}
-                            {access.hasAccess && access.roles && access.roles.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-xs text-gray-600 mb-1">Permission Sets:</div>
-                                {access.roles.map((role, index) => (
-                                  <div key={index} className="text-xs text-blue-600 truncate">
-                                    {role.split('/').pop() || role}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className="text-xs text-gray-400 mt-2">
-                              Checked: {new Date(access.lastChecked).toLocaleString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <UserListContainer
+        variant="organization"
+        users={users}
+        onUserClick={handleUserClick}
+        selectedUser={selectedUser || undefined}
+        loadingUserAccess={loadingUserAccess}
+      />
 
       {users.length === 0 && (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
