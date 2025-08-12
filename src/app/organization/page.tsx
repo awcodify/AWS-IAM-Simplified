@@ -21,7 +21,6 @@ export default function OrganizationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [loadingUserAccess, setLoadingUserAccess] = useState<string | null>(null);
   const [loadingBulkAccess, setLoadingBulkAccess] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -77,9 +76,15 @@ export default function OrganizationPage() {
         }
 
         setAccounts(accountsData.data || []);
-        setUsers(usersData.data || []);
+        const fetchedUsers = usersData.data || [];
+        setUsers(fetchedUsers);
         setPagination(usersData.pagination || null);
         setIsInitialLoad(false);
+
+        // Automatically load all users' access data if users were fetched
+        if (fetchedUsers.length > 0) {
+          loadBulkAccessForUsers(fetchedUsers);
+        }
       })
       .catch(error => {
         setError(`Failed to fetch data: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -131,90 +136,45 @@ export default function OrganizationPage() {
     fetchData(currentPage, searchTerm);
   };
 
-  const loadAllUsersAccess = async () => {
-    if (users.length === 0) return;
+  const loadBulkAccessForUsers = async (targetUsers: OrganizationUser[]) => {
+    if (targetUsers.length === 0) return;
     
     setLoadingBulkAccess(true);
     
-    const userIds = users.map(user => user.user.UserId);
+    const userIds = targetUsers.map(user => user.user.UserId);
     
-    fetch('/api/organization/users/bulk-access', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userIds,
-        ssoRegion: encodeURIComponent(ssoRegion),
-        region: encodeURIComponent(awsRegion)
-      }),
-      cache: 'no-store'
-    })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success) {
-          // Update all users' account access
-          setUsers(prevUsers => 
-            prevUsers.map(user => ({
-              ...user,
-              accountAccess: result.data[user.user.UserId] || []
-            }))
-          );
-        } else {
-          console.error('Failed to load bulk user access:', result.error);
-        }
-      })
-      .catch(error => {
-        console.error('Error loading bulk user access:', error);
-      })
-      .finally(() => {
-        setLoadingBulkAccess(false);
+    try {
+      const response = await fetch('/api/organization/users/bulk-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userIds,
+          ssoRegion: encodeURIComponent(ssoRegion),
+          region: encodeURIComponent(awsRegion)
+        }),
+        cache: 'no-store'
       });
-  };
-
-  const handleUserClick = async (orgUser: OrganizationUser) => {
-    const userId = orgUser.user.UserId;
-    
-    if (selectedUser === userId) {
-      // Collapse if already selected
-      setSelectedUser(null);
-      return;
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update users' account access
+        setUsers(prevUsers => 
+          prevUsers.map(user => ({
+            ...user,
+            accountAccess: result.data[user.user.UserId] || []
+          }))
+        );
+      } else {
+        console.error('Failed to load bulk user access:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading bulk user access:', error);
+    } finally {
+      setLoadingBulkAccess(false);
     }
-
-    setSelectedUser(userId);
-
-    // If account access is already loaded, don't fetch again
-    if (orgUser.accountAccess.length > 0) {
-      return;
-    }
-
-    // Load account access on demand using the new efficient API
-    setLoadingUserAccess(userId);
-    
-    fetch(`/api/organization/users/${encodeURIComponent(userId)}?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`, {
-      cache: 'force-cache'
-    })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success) {
-          // Update the user's account access in the state
-          setUsers(prevUsers => 
-            prevUsers.map(user => 
-              user.user.UserId === userId 
-                ? { ...user, accountAccess: result.data || [] }
-                : user
-            )
-          );
-        } else {
-          console.error('Failed to load user account access:', result.error);
-        }
-      })
-      .catch(error => {
-        console.error('Error loading user account access:', error);
-      })
-      .finally(() => {
-        setLoadingUserAccess(null);
-      });
   };
 
   // Automatically fetch data on mount and region changes
@@ -256,24 +216,6 @@ export default function OrganizationPage() {
 
   const actions = (
     <>
-      <button
-        onClick={loadAllUsersAccess}
-        disabled={loadingBulkAccess || users.length === 0}
-        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loadingBulkAccess ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Loading All Access...
-          </>
-        ) : (
-          <>
-            <Users className="w-4 h-4 mr-2" />
-            Load All Access
-          </>
-        )}
-      </button>
-      
       <button
         onClick={handleRefresh}
         disabled={loading}
@@ -326,9 +268,6 @@ export default function OrganizationPage() {
               <Building2 className="w-4 h-4 mr-1" />
               {accounts.length} Accounts
             </div>
-            <div className="text-xs text-gray-400">
-              💡 Use &quot;Load All Access&quot; for efficient bulk loading
-            </div>
           </div>
           
           {users.length > 0 && users[0]?.user?.IdentityStoreId && !users[0].user.IdentityStoreId.startsWith('d-') && (
@@ -351,15 +290,14 @@ export default function OrganizationPage() {
         {/* User Access Table */}
         <UserAccessTable
           users={users}
-          pagination={pagination || undefined}
-          onUserClick={handleUserClick}
+          pagination={pagination ?? undefined}
           onPageChange={handlePageChange}
           onSearchChange={handleSearchChange}
           selectedUser={selectedUser || undefined}
-          loadingUserAccess={loadingUserAccess}
           searchTerm={searchTerm}
           loading={loading}
           searchLoading={searchLoading}
+          loadingBulkAccess={loadingBulkAccess}
         />
 
         {users.length === 0 && !loading && (

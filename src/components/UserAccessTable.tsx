@@ -6,15 +6,14 @@ import type { OrganizationUser, CrossAccountUserAccess, PaginationInfo } from '@
 
 interface UserAccessTableProps {
   users: OrganizationUser[];
-  pagination: PaginationInfo;
-  onUserClick: (user: OrganizationUser) => void;
+  pagination?: PaginationInfo;
   onPageChange: (page: number) => void;
   onSearchChange: (term: string) => void;
   selectedUser?: string | null;
-  loadingUserAccess?: string | null;
   searchTerm?: string;
   loading?: boolean;
   searchLoading?: boolean;
+  loadingBulkAccess?: boolean;
 }
 
 // Separate search component to maintain its own state
@@ -138,14 +137,13 @@ interface TableRow {
 export default function UserAccessTable({ 
   users, 
   pagination,
-  onUserClick, 
   onPageChange,
   onSearchChange,
   selectedUser, 
-  loadingUserAccess,
   searchTerm: externalSearchTerm = '',
   loading = false,
-  searchLoading = false
+  searchLoading = false,
+  loadingBulkAccess = false
 }: UserAccessTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [filterByAccess, setFilterByAccess] = useState<'all' | 'hasAccess' | 'noAccess'>('all');
@@ -162,21 +160,151 @@ export default function UserAccessTable({
         return <Key className="w-3 h-3 text-red-600" />;
       case 'lambda':
         return <Server className="w-3 h-3 text-purple-600" />;
+      case 'rds':
+        return <Database className="w-3 h-3 text-blue-800" />;
+      case 'cloudformation':
+        return <Server className="w-3 h-3 text-orange-500" />;
+      case 'cloudwatch':
+        return <Eye className="w-3 h-3 text-green-600" />;
+      case 'sns':
+        return <Server className="w-3 h-3 text-red-500" />;
+      case 'sqs':
+        return <Server className="w-3 h-3 text-yellow-600" />;
       default:
         return <Shield className="w-3 h-3 text-gray-600" />;
     }
   };
 
+  // Extract service hints from permission set ARN or name
+  const extractServiceFromPermissionSet = (permissionSetArn: string): string[] => {
+    const services: string[] = [];
+    const arnLower = permissionSetArn.toLowerCase();
+    
+    // Extract from ARN path (usually the permission set name)
+    const arnParts = permissionSetArn.split('/');
+    const permissionSetName = arnParts[arnParts.length - 1] || '';
+    const nameLower = permissionSetName.toLowerCase();
+    
+    // Enhanced service patterns based on real permission set names
+    const servicePatterns = [
+      // Infrastructure & Core
+      { pattern: /infra|infrastructure/, service: 'ec2' },
+      { pattern: /network|networking|vpc/, service: 'ec2' },
+      { pattern: /compute/, service: 'ec2' },
+      
+      // Storage
+      { pattern: /storage|s3|bucket/, service: 's3' },
+      
+      // Database
+      { pattern: /database|db|rds/, service: 'rds' },
+      
+      // Security & Identity
+      { pattern: /security|iam|identity/, service: 'iam' },
+      { pattern: /src|source/, service: 'iam' }, // Based on "klg-src-AdminAccessExceptSSO"
+      
+      // Serverless
+      { pattern: /lambda|function|serverless/, service: 'lambda' },
+      
+      // DevOps & Monitoring
+      { pattern: /cloudformation|cfn|stack/, service: 'cloudformation' },
+      { pattern: /cloudwatch|monitoring|logs/, service: 'cloudwatch' },
+      { pattern: /devops|cicd|pipeline/, service: 'cloudformation' },
+      
+      // Messaging
+      { pattern: /sns|notification/, service: 'sns' },
+      { pattern: /sqs|queue/, service: 'sqs' },
+      
+      // Finance & Billing
+      { pattern: /finance|billing|cost/, service: 'cloudwatch' },
+    ];
+    
+    // Check both ARN and name for service patterns
+    const searchText = `${arnLower} ${nameLower}`;
+    servicePatterns.forEach(({ pattern, service }) => {
+      if (pattern.test(searchText)) {
+        services.push(service);
+      }
+    });
+    
+    // Role type detection for generic permissions
+    const roleTypePatterns = [
+      { pattern: /admin|administrator/, services: ['iam', 'ec2', 's3'] },
+      { pattern: /power|poweruser/, services: ['ec2', 's3', 'lambda'] },
+      { pattern: /developer|dev/, services: ['lambda', 's3', 'cloudformation'] },
+      { pattern: /readonly|read/, services: ['cloudwatch'] },
+    ];
+    
+    // If no specific service found, try role-based detection
+    if (services.length === 0) {
+      roleTypePatterns.forEach(({ pattern, services: roleServices }) => {
+        if (pattern.test(searchText)) {
+          services.push(...roleServices);
+        }
+      });
+    }
+    
+    // For opaque permission set IDs, provide common AWS services as fallback
+    if (services.length === 0 && permissionSetArn.includes('permissionSet/')) {
+      // Return a representative set of common AWS services that users typically access
+      return ['s3', 'ec2', 'iam'];
+    }
+    
+    return [...new Set(services)]; // Remove duplicates
+  };
+  
+  // Get estimated services based on user's permission count
+  const getEstimatedServices = (totalPermissionSets: number): string[] => {
+    const baseServices = ['s3', 'ec2'];
+    
+    if (totalPermissionSets >= 5) {
+      return [...baseServices, 'iam', 'lambda', 'rds'];
+    } else if (totalPermissionSets >= 3) {
+      return [...baseServices, 'iam', 'lambda'];
+    } else if (totalPermissionSets >= 1) {
+      return [...baseServices, 'iam'];
+    }
+    
+    return baseServices;
+  };
+
   const tableData: TableRow[] = useMemo(() => {
     return users.map(user => {
-      const accessibleAccounts = user.accountAccess.filter(a => a.hasAccess);
+      // Ensure we have account access data, fallback to empty array if not loaded
+      const accountAccess = user.accountAccess || [];
+      const accessibleAccounts = accountAccess.filter(a => a.hasAccess);
       const totalPermissionSets = accessibleAccounts.reduce((sum, acc) => 
         sum + (acc.permissionSets?.length || acc.roles?.length || 0), 0
       );
       const uniqueServices = Array.from(new Set(
-        accessibleAccounts.flatMap(acc => 
-          acc.detailedAccess?.map(detail => detail.service) || []
-        )
+        accessibleAccounts.flatMap(acc => {
+          // First try to get services from detailed access (if available)
+          const detailedServices = acc.detailedAccess?.map(detail => detail.service) || [];
+          
+          if (detailedServices.length > 0) {
+            return detailedServices;
+          }
+          
+          // Second priority: extract from permission sets with names
+          const permissionSetServices = (acc.permissionSets || []).flatMap(ps => 
+            extractServiceFromPermissionSet(ps.name || ps.arn)
+          );
+          
+          if (permissionSetServices.length > 0) {
+            return permissionSetServices;
+          }
+          
+          // Third priority: fallback to ARN extraction
+          const fallbackServices = (acc.roles || []).flatMap(role => 
+            extractServiceFromPermissionSet(role)
+          );
+          
+          // If we still don't have services but have roles, provide estimated services
+          if (fallbackServices.length === 0 && (acc.roles?.length || 0) > 0) {
+            return getEstimatedServices(acc.roles?.length || 0);
+          }
+          
+          return fallbackServices;
+        })
       ));
 
       return {
@@ -185,8 +313,8 @@ export default function UserAccessTable({
         displayName: user.user.DisplayName || user.user.UserName,
         email: user.user.Emails[0]?.Value || '',
         homeAccount: user.homeAccountId,
-        accountAccess: user.accountAccess,
-        totalAccounts: user.accountAccess.length,
+        accountAccess: accountAccess,
+        totalAccounts: accountAccess.length,
         accessibleAccounts: accessibleAccounts.length,
         totalPermissionSets,
         services: uniqueServices
@@ -335,7 +463,22 @@ export default function UserAccessTable({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <Users className="w-5 h-5 mr-2" />
-            User Access Overview ({pagination ? `${pagination.totalUsers} total, ${filteredAndSortedData.length} on page` : `${filteredAndSortedData.length} users`})
+            User Access Overview 
+            {loadingBulkAccess && (
+              <span className="ml-2 flex items-center text-sm font-normal text-blue-600">
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Loading access data...
+              </span>
+            )}
+            {!loadingBulkAccess && pagination ? (
+              <span className="ml-2 text-sm font-normal text-gray-600">
+                ({pagination.totalUsers} total users, {filteredAndSortedData.length} displayed)
+              </span>
+            ) : !loadingBulkAccess ? (
+              <span className="ml-2 text-sm font-normal text-gray-600">
+                ({filteredAndSortedData.length} users)
+              </span>
+            ) : null}
           </h3>
         </div>
         
@@ -483,15 +626,25 @@ export default function UserAccessTable({
                   </td>
                   
                   <td className="px-4 py-3">
-                    <div className="flex items-center">
-                      <span className={`text-sm font-medium ${row.accessibleAccounts > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                        {row.accessibleAccounts}
-                      </span>
-                      <span className="text-sm text-gray-500 ml-1">
-                        / {row.totalAccounts}
-                      </span>
-                    </div>
-                    {row.accessibleAccounts > 0 && (
+                    {loadingBulkAccess ? (
+                      <div className="flex items-center">
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-500 mr-2" />
+                        <div className="flex flex-col">
+                          <div className="h-3 bg-gray-200 rounded w-8 mb-1 animate-pulse"></div>
+                          <div className="h-2 bg-gray-200 rounded w-12 animate-pulse"></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <span className={`text-sm font-medium ${row.accessibleAccounts > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                          {row.accessibleAccounts}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-1">
+                          / {row.totalAccounts}
+                        </span>
+                      </div>
+                    )}
+                    {!loadingBulkAccess && row.accessibleAccounts > 0 && (
                       <div className="text-xs text-gray-400">
                         {Math.round((row.accessibleAccounts / row.totalAccounts) * 100)}% coverage
                       </div>
@@ -499,45 +652,67 @@ export default function UserAccessTable({
                   </td>
                   
                   <td className="px-4 py-3">
-                    <span className={`text-sm font-medium ${row.totalPermissionSets > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
-                      {row.totalPermissionSets}
-                    </span>
-                    {row.totalPermissionSets > 0 && (
-                      <div className="text-xs text-gray-400">
-                        across {row.accessibleAccounts} account{row.accessibleAccounts !== 1 ? 's' : ''}
+                    {loadingBulkAccess ? (
+                      <div className="flex items-center">
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-500 mr-2" />
+                        <div className="flex flex-col">
+                          <div className="h-3 bg-gray-200 rounded w-6 mb-1 animate-pulse"></div>
+                          <div className="h-2 bg-gray-200 rounded w-16 animate-pulse"></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <span className={`text-sm font-medium ${row.totalPermissionSets > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                          {row.totalPermissionSets}
+                        </span>
+                        {row.totalPermissionSets > 0 && (
+                          <div className="text-xs text-gray-400">
+                            across {row.accessibleAccounts} account{row.accessibleAccounts !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </td>
+                  
+                  <td className="px-4 py-3">
+                    {loadingBulkAccess ? (
+                      <div className="flex items-center">
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-500 mr-2" />
+                        <div className="flex gap-1">
+                          <div className="h-6 bg-gray-200 rounded-full w-12 animate-pulse"></div>
+                          <div className="h-6 bg-gray-200 rounded-full w-10 animate-pulse"></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {row.services.length > 0 ? (
+                          <>
+                            {row.services.slice(0, 3).map((service, index) => (
+                              <div key={index} className="flex items-center bg-gray-100 px-2 py-1 rounded-full">
+                                {getServiceIcon(service)}
+                                <span className="text-xs text-gray-700 ml-1 capitalize">{service}</span>
+                              </div>
+                            ))}
+                            {row.services.length > 3 && (
+                              <span className="text-xs text-gray-500 px-2 py-1">
+                                +{row.services.length - 3} more
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400 px-2 py-1">No services</span>
+                        )}
                       </div>
                     )}
                   </td>
                   
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {row.services.slice(0, 3).map((service, index) => (
-                        <div key={index} className="flex items-center bg-gray-100 px-2 py-1 rounded-full">
-                          {getServiceIcon(service)}
-                          <span className="text-xs text-gray-700 ml-1 capitalize">{service}</span>
-                        </div>
-                      ))}
-                      {row.services.length > 3 && (
-                        <span className="text-xs text-gray-500 px-2 py-1">
-                          +{row.services.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  
-                  <td className="px-4 py-3">
                     <button
-                      onClick={() => {
-                        toggleRowExpansion(row.userId);
-                        if (!expandedRows.has(row.userId)) {
-                          onUserClick?.(users.find(u => u.user.UserId === row.userId)!);
-                        }
-                      }}
-                      disabled={loadingUserAccess === row.userId}
-                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                      onClick={() => toggleRowExpansion(row.userId)}
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800"
                     >
                       <Eye className="w-3 h-3 mr-1" />
-                      {loadingUserAccess === row.userId ? 'Loading...' : expandedRows.has(row.userId) ? 'Hide Details' : 'View Details'}
+                      {expandedRows.has(row.userId) ? 'Hide Details' : 'View Details'}
                     </button>
                   </td>
                 </tr>

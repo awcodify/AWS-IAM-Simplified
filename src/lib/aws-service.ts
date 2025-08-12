@@ -537,6 +537,11 @@ export class AWSService {
                 const existingRoles = accountAssignments.get(accountId) || [];
                 existingRoles.push(assignment.PermissionSetArn);
                 accountAssignments.set(accountId, existingRoles);
+                
+                // Debug: log first few permission set ARNs for the first user
+                if (existingRoles.length <= 3 && userId === userIds[0]) {
+                  console.log('Sample permission set ARN:', assignment.PermissionSetArn);
+                }
               }
             });
             
@@ -560,6 +565,60 @@ export class AWSService {
         const results = await Promise.all(assignmentPromises);
         const successCount = results.filter(r => r.success).length;
         console.log(`Successfully fetched access for ${successCount}/${userIds.length} users`);
+        
+        // Try to get permission set names for better service detection (lightweight call)
+        const permissionSetNameMap = new Map<string, string>();
+        try {
+          const uniquePermissionSetArns = new Set<string>();
+          userAccessMap.forEach(userAccess => {
+            userAccess.forEach(access => {
+              if (access.roles) {
+                access.roles.forEach(arn => uniquePermissionSetArns.add(arn));
+              }
+            });
+          });
+          
+          console.log(`Attempting to fetch names for ${uniquePermissionSetArns.size} unique permission sets`);
+          
+          // Use a more conservative approach - only fetch a few permission set names
+          const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
+          const namePromises = sampleArns.map(async (arn) => {
+            try {
+              const describeCommand = new DescribePermissionSetCommand({
+                InstanceArn: ssoInstance.InstanceArn,
+                PermissionSetArn: arn
+              });
+              const response = await ssoAdminClient.send(describeCommand);
+              const name = response.PermissionSet?.Name || '';
+              if (name) {
+                permissionSetNameMap.set(arn, name);
+              }
+              return { arn, name };
+            } catch (error) {
+              console.log(`Could not fetch name for permission set ${arn}:`, error);
+              return { arn, name: '' };
+            }
+          });
+          
+          const permissionSetNames = await Promise.all(namePromises);
+          console.log('Sample permission set names:', permissionSetNames);
+          
+        } catch (error) {
+          console.log('Could not fetch permission set names:', error);
+        }
+        
+        // Enhance the response with permission set names where available
+        userAccessMap.forEach(userAccess => {
+          userAccess.forEach(access => {
+            if (access.roles) {
+              access.permissionSets = access.roles.map(arn => ({
+                name: permissionSetNameMap.get(arn) || arn.split('/').pop() || arn,
+                arn: arn,
+                description: permissionSetNameMap.get(arn) ? undefined : 'Name not available'
+              }));
+            }
+          });
+        });
         
         return userAccessMap;
       })
