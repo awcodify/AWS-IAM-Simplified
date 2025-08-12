@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Building2, Settings, CheckCircle2, X } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Building2, ChevronDown, CheckCircle2, Globe } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
-import RegionSelector from './RegionSelector';
 
 interface HeaderProps {
   accountInfo?: {
@@ -13,153 +12,150 @@ interface HeaderProps {
   } | null;
 }
 
+interface RegionOption {
+  value: string;
+  label: string;
+}
+
+const AWS_REGIONS: RegionOption[] = [
+  { value: 'us-east-1', label: 'US East (N. Virginia)' },
+  { value: 'us-east-2', label: 'US East (Ohio)' },
+  { value: 'us-west-1', label: 'US West (N. California)' },
+  { value: 'us-west-2', label: 'US West (Oregon)' },
+  { value: 'ca-central-1', label: 'Canada (Central)' },
+  { value: 'eu-west-1', label: 'Europe (Ireland)' },
+  { value: 'eu-west-2', label: 'Europe (London)' },
+  { value: 'eu-west-3', label: 'Europe (Paris)' },
+  { value: 'eu-central-1', label: 'Europe (Frankfurt)' },
+  { value: 'eu-north-1', label: 'Europe (Stockholm)' },
+  { value: 'eu-south-1', label: 'Europe (Milan)' },
+  { value: 'ap-northeast-1', label: 'Asia Pacific (Tokyo)' },
+  { value: 'ap-northeast-2', label: 'Asia Pacific (Seoul)' },
+  { value: 'ap-northeast-3', label: 'Asia Pacific (Osaka)' },
+  { value: 'ap-southeast-1', label: 'Asia Pacific (Singapore)' },
+  { value: 'ap-southeast-2', label: 'Asia Pacific (Sydney)' },
+  { value: 'ap-southeast-3', label: 'Asia Pacific (Jakarta)' },
+  { value: 'ap-south-1', label: 'Asia Pacific (Mumbai)' },
+  { value: 'sa-east-1', label: 'South America (São Paulo)' },
+  { value: 'af-south-1', label: 'Africa (Cape Town)' },
+  { value: 'me-south-1', label: 'Middle East (Bahrain)' },
+];
+
 export default function Header({ accountInfo }: HeaderProps) {
   const { awsRegion, ssoRegion, setAwsRegion } = useRegion();
-  const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleRegionChange = (newRegion: string) => {
+    setAwsRegion(newRegion);
+    setIsDropdownOpen(false);
+  };
+
+  const getCurrentRegionLabel = () => {
+    const region = AWS_REGIONS.find(r => r.value === awsRegion);
+    return region ? region.label : awsRegion;
+  };
 
   return (
-    <>
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">AWS IAM Dashboard</h1>
-              <p className="text-gray-600 mt-1">Simplified IAM management and permission tracking</p>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* Region Selector */}
+    <div className="bg-white shadow">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">AWS IAM Dashboard</h1>
+            <p className="text-gray-600 mt-1">Simplified IAM management and permission tracking</p>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {/* Region Dropdown */}
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setIsRegionModalOpen(true)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                title="Region Settings"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-w-0"
+                title={`AWS Region: ${getCurrentRegionLabel()}`}
               >
-                <Building2 className="w-4 h-4 mr-2 text-green-600" />
-                <span className="hidden sm:inline mr-2">AWS:</span>
-                {awsRegion}
-                <Settings className="w-3 h-3 ml-2 text-gray-400" />
+                <Building2 className="w-4 h-4 mr-2 text-green-600 flex-shrink-0" />
+                <span className="hidden sm:inline mr-2 flex-shrink-0">AWS:</span>
+                <span className="truncate max-w-24 sm:max-w-32">{awsRegion}</span>
+                <ChevronDown className={`w-3 h-3 ml-2 flex-shrink-0 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Account Info */}
-              {accountInfo && (
-                <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
-                  <span className="hidden sm:inline mr-1">Account:</span>
-                  {accountInfo.accountId}
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-1 w-80 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                  <div className="py-2">
+                    {/* Current Settings Header */}
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                      <div className="text-xs font-medium text-gray-900 mb-1">Current Settings</div>
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span>AWS Operations:</span>
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded">{awsRegion}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-600 mt-1">
+                        <span>Identity Center:</span>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">{ssoRegion}</span>
+                      </div>
+                    </div>
+
+                    {/* Region Options */}
+                    {AWS_REGIONS.map((region) => (
+                      <button
+                        key={region.value}
+                        onClick={() => handleRegionChange(region.value)}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center justify-between ${
+                          region.value === awsRegion ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-900'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <Globe className="w-3 h-3 mr-2 text-gray-400" />
+                          <div>
+                            <div className="font-medium">{region.value}</div>
+                            <div className="text-xs text-gray-500">{region.label}</div>
+                          </div>
+                        </div>
+                        {region.value === awsRegion && (
+                          <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Information Footer */}
+                  {ssoRegion !== awsRegion && (
+                    <div className="px-4 py-2 bg-yellow-50 border-t border-yellow-200">
+                      <div className="text-xs text-yellow-800">
+                        <strong>Note:</strong> Your AWS and Identity Center regions differ. This is normal if your Identity Center is configured in a different region.
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Account Info */}
+            {accountInfo && (
+              <div className="flex items-center text-sm text-gray-600">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
+                <span className="hidden sm:inline mr-1">Account:</span>
+                {accountInfo.accountId}
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Region Settings Modal */}
-      {isRegionModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            {/* Background overlay */}
-            <div 
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              onClick={() => setIsRegionModalOpen(false)}
-            />
-
-            {/* Modal panel */}
-            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-              <div className="absolute top-0 right-0 pt-4 pr-4">
-                <button
-                  type="button"
-                  className="bg-white rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  onClick={() => setIsRegionModalOpen(false)}
-                >
-                  <span className="sr-only">Close</span>
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              <div className="sm:flex sm:items-start">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <Building2 className="h-6 w-6 text-blue-600" />
-                </div>
-                
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    Region Settings
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    {/* AWS Region Selector */}
-                    <RegionSelector
-                      label="AWS Region"
-                      value={awsRegion}
-                      onChange={setAwsRegion}
-                      icon={<Building2 className="w-4 h-4 text-green-600 mr-2" />}
-                      description="Primary AWS region for operations"
-                      colorScheme="green"
-                    />
-
-                    {/* SSO Region Display (Read-only) */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center mb-2">
-                        <Settings className="w-4 h-4 text-blue-600 mr-2" />
-                        <label className="block text-sm font-medium text-blue-800">
-                          IAM Identity Center Region
-                        </label>
-                      </div>
-                      <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
-                        {ssoRegion}
-                      </div>
-                      <p className="mt-1 text-xs text-blue-600">
-                        Configured via environment variables
-                      </p>
-                    </div>
-
-                    {/* Region Information */}
-                    {ssoRegion !== awsRegion && (
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-start">
-                          <div className="text-sm text-yellow-800">
-                            <strong>Note:</strong> Your AWS region and Identity Center region are different. 
-                            This is normal if your Identity Center is configured in a different region.
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Current Settings Summary */}
-                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="text-sm text-gray-700">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">AWS Operations:</span>
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                            {awsRegion}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="font-medium">Identity Center:</span>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                            {ssoRegion}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={() => setIsRegionModalOpen(false)}
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
