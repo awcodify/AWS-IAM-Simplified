@@ -1,21 +1,29 @@
 # AWS IAM Dashboard
 
-A simplified web dashboard for AWS IAM management that helps you easily understand what resources a specific user can access in AWS accounts.
+A simplified web dashboard for AWS IAM management that helps you easily understand what resources users can access across AWS accounts in your organization.
 
 ## 🎯 Purpose
 
-Managing IAM in AWS can be stressful, especially when IAM wasn't set up properly from the beginning. This dashboard simplifies the process by providing a clear overview of all users and allowing you to easily explore their permissions:
+Managing IAM in AWS Organizations can be complex, especially when you need to understand cross-account access. This dashboard simplifies the process by providing both single-account and organization-wide views:
 
-**"What users exist in account Z and what resources does user X have access to?"**
+**"What users exist across my organization and which accounts does user X have access to?"**
 
 ## ✨ Features
 
-- **User listing** - View all IAM users in your AWS account at a glance
-- **Click to view permissions** - Select any user to see their detailed permissions
-- **Comprehensive permission view** - Shows attached policies, inline policies, and group memberships
-- **Account information** - Displays current AWS account details
+- **Single Account View**
+  - View all IAM users in your current AWS account
+  - Click to see detailed permissions for any user
+  - Shows attached policies, inline policies, and group memberships
+
+- **Organization View** (Management Account)
+  - List all accounts in your AWS Organization
+  - See which users have access to which accounts
+  - Cross-account user access verification
+  - Visual representation of user permissions across the organization
+
+- **Real-time data** - Fetches live data from AWS IAM and Organizations APIs
 - **Clean, modern UI** - Built with Next.js and Tailwind CSS
-- **Real-time data** - Fetches live data from AWS IAM APIs
+- **Account information** - Displays current AWS account details
 
 ## 🚀 Quick Start
 
@@ -43,8 +51,27 @@ aws configure
 **Option B: Environment Variables**
 ```bash
 cp .env.example .env.local
-# Edit .env.local with your AWS credentials
+# Edit .env.local with your AWS credentials and region settings
 ```
+
+### Environment Configuration
+
+The application uses environment variables for configuration. Copy `.env.example` to `.env.local` and configure:
+
+```bash
+# AWS Profile (if using AWS CLI profiles)
+AWS_PROFILE=your-aws-profile-name
+
+# IAM Identity Center region (typically doesn't change)
+NEXT_PUBLIC_AWS_SSO_REGION=us-east-1
+
+# Default AWS region (can be changed in UI)
+NEXT_PUBLIC_AWS_DEFAULT_REGION=us-east-1
+```
+
+**Important Notes:**
+- `NEXT_PUBLIC_AWS_SSO_REGION`: Set this to the region where your IAM Identity Center is configured. This is typically set once and doesn't change.
+- `NEXT_PUBLIC_AWS_DEFAULT_REGION`: The default AWS region for operations. Users can override this in the UI.
 
 3. Run the development server:
 ```bash
@@ -55,7 +82,7 @@ npm run dev
 
 ## 🔧 AWS Setup
 
-### Required IAM Permissions
+### For Single Account View
 
 Your AWS user/role needs these permissions:
 
@@ -75,6 +102,85 @@ Your AWS user/role needs these permissions:
         "iam:GetGroup",
         "iam:ListAttachedGroupPolicies",
         "sts:GetCallerIdentity"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### For Organization View (Management Account Only)
+
+**Requirements:**
+1. Must be using the **management account** of your AWS Organization
+2. AWS Organizations must be enabled
+3. Cross-account roles must be set up in member accounts
+
+**Required Permissions:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "organizations:ListAccounts",
+        "organizations:DescribeOrganization",
+        "iam:ListUsers",
+        "iam:GetUser",
+        "iam:ListAttachedUserPolicies",
+        "iam:ListUserPolicies",
+        "iam:GetUserPolicy",
+        "iam:ListGroupsForUser",
+        "sts:GetCallerIdentity",
+        "sts:AssumeRole"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**Cross-Account Access Setup:**
+
+In each member account, create a role that the management account can assume:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::MANAGEMENT-ACCOUNT-ID:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "your-org-external-id"
+        }
+      }
+    }
+  ]
+}
+```
+
+Role name: `OrganizationAccountAccessRole` (default) or customize in the code.
+
+**Permissions for the cross-account role:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListUsers",
+        "iam:GetUser",
+        "iam:ListAttachedUserPolicies",
+        "iam:ListUserPolicies",
+        "iam:GetUserPolicy",
+        "iam:ListGroupsForUser"
       ],
       "Resource": "*"
     }
@@ -115,11 +221,15 @@ src/
 │   ├── api/
 │   │   ├── account/route.ts          # Get AWS account info
 │   │   ├── users/route.ts            # List all IAM users
-│   │   └── users/[username]/route.ts # Get user permissions
+│   │   ├── users/[username]/route.ts # Get user permissions
+│   │   └── organization/
+│   │       ├── accounts/route.ts     # List organization accounts
+│   │       └── users/route.ts        # Get organization-wide user access
 │   └── page.tsx                      # Main dashboard page
 ├── components/
-│   ├── UserList.tsx                  # User listing component
-│   └── PermissionView.tsx            # Permission display component
+│   ├── UserList.tsx                  # Single account user listing
+│   ├── PermissionView.tsx            # Permission display component
+│   └── OrganizationUserList.tsx      # Organization-wide user view
 ├── lib/
 │   └── aws-service.ts                # AWS SDK wrapper
 └── types/
@@ -138,6 +248,11 @@ src/
 - Verify your AWS credentials are configured correctly
 - Check that your AWS user has the required IAM permissions
 - Ensure your AWS region is supported
+
+### Organization View Issues
+- **"No organization accounts found"**: Make sure you're using the management account with AWS Organizations enabled
+- **"Failed to retrieve organization users"**: Verify cross-account roles are set up in member accounts
+- **Users show "no access" to accounts**: Check that `OrganizationAccountAccessRole` exists in member accounts and has proper permissions
 
 ### "User not found"
 - Verify the username exists in your AWS account

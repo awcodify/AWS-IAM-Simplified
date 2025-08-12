@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { AlertCircle, Shield, CheckCircle2, Building2 } from 'lucide-react';
 import UserList from '@/components/UserList';
 import PermissionView from '@/components/PermissionView';
+import OrganizationUserList from '@/components/OrganizationUserList';
+import AWSConfigDiagnostic from '@/components/AWSConfigDiagnostic';
 import type { UserPermissions, AccountInfo, IAMUser } from '@/types/aws';
 
 export default function Home() {
@@ -15,13 +17,22 @@ export default function Home() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [awsConnected, setAwsConnected] = useState<boolean | null>(null);
+  const [activeTab, setActiveTab] = useState<'single' | 'organization' | 'diagnostic'>('single');
 
-  // Check AWS connection on mount
-  useEffect(() => {
-    checkAWSConnection();
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    const response = await fetch('/api/users');
+    const result = await response.json();
+    
+    if (result.success) {
+      setUsers(result.data || []);
+    } else {
+      setError(result.error || 'Failed to load users');
+    }
+    setUsersLoading(false);
   }, []);
 
-  const checkAWSConnection = async () => {
+  const checkAWSConnection = useCallback(async () => {
     const response = await fetch('/api/account');
     const result = await response.json();
     
@@ -34,20 +45,12 @@ export default function Home() {
       setAwsConnected(false);
       setError(result.error || 'Failed to connect to AWS');
     }
-  };
+  }, [loadUsers]);
 
-  const loadUsers = async () => {
-    setUsersLoading(true);
-    const response = await fetch('/api/users');
-    const result = await response.json();
-    
-    if (result.success) {
-      setUsers(result.data || []);
-    } else {
-      setError(result.error || 'Failed to load users');
-    }
-    setUsersLoading(false);
-  };
+  // Check AWS connection on mount
+  useEffect(() => {
+    checkAWSConnection();
+  }, [checkAWSConnection]);
 
   const handleUserSelect = async (username: string) => {
     setSelectedUser(username);
@@ -114,26 +117,84 @@ export default function Home() {
         {/* Main Content */}
         {awsConnected === true && (
           <div className="space-y-8">
-            {/* Users List Section */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="text-center mb-6">
-                <Shield className="h-12 w-12 text-blue-600 mx-auto mb-3" />
-                <h2 className="text-xl font-semibold text-gray-900">IAM Users</h2>
-                <p className="text-gray-600 mt-1">
-                  Select a user to see what resources they can access
-                </p>
+            {/* Tab Navigation */}
+            <div className="bg-white shadow rounded-lg">
+              <div className="border-b border-gray-200">
+                <nav className="flex space-x-8 px-6" aria-label="Tabs">
+                  <button
+                    onClick={() => setActiveTab('single')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'single'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Single Account View
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('organization')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'organization'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Organization View
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('diagnostic')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'diagnostic'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Diagnostics
+                    </div>
+                  </button>
+                </nav>
               </div>
-              
-              <UserList 
-                users={users} 
-                onUserSelect={handleUserSelect} 
-                loading={usersLoading}
-                selectedUser={selectedUser}
-              />
+
+              <div className="p-6">
+                {activeTab === 'single' && (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <Shield className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                      <h2 className="text-xl font-semibold text-gray-900">IAM Users</h2>
+                      <p className="text-gray-600 mt-1">
+                        Select a user to see what resources they can access
+                      </p>
+                    </div>
+                    
+                    <UserList 
+                      users={users} 
+                      onUserSelect={handleUserSelect} 
+                      loading={usersLoading || loading}
+                      selectedUser={selectedUser}
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'organization' && (
+                  <OrganizationUserList />
+                )}
+
+                {activeTab === 'diagnostic' && (
+                  <AWSConfigDiagnostic />
+                )}
+              </div>
             </div>
 
             {/* Error Display */}
-            {error && (
+            {error && activeTab === 'single' && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex">
                   <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0" />
@@ -146,7 +207,7 @@ export default function Home() {
             )}
 
             {/* Results */}
-            {userPermissions && accountInfo && (
+            {userPermissions && accountInfo && activeTab === 'single' && (
               <PermissionView 
                 userPermissions={userPermissions} 
                 accountId={accountInfo.accountId}

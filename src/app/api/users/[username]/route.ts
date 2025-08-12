@@ -17,13 +17,6 @@ export async function GET(
   const awsService = new AWSService();
   const userPermissions = await awsService.getUserPermissions(username);
   
-  if (!userPermissions) {
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch user permissions'
-    }, { status: 500 });
-  }
-  
   return NextResponse.json({
     success: true,
     data: userPermissions
