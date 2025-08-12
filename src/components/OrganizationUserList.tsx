@@ -170,9 +170,6 @@ export default function OrganizationUserList() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Organization Users</h2>
-            <p className="text-gray-600 mb-6">
-              Configure your regions using the region selector (bottom-right), then fetch organization data to view user access across accounts
-            </p>
             
             {/* Region Information */}
             {ssoRegion !== awsRegion && (
@@ -356,34 +353,6 @@ export default function OrganizationUserList() {
             </p>
           </div>
         )}
-        
-                  <div className="flex items-center space-x-6 text-sm text-gray-500">
-            <div className="flex items-center">
-              <Users className="w-4 h-4 mr-1" />
-              {users.length} Users
-            </div>
-            <div className="flex items-center">
-              <Building2 className="w-4 h-4 mr-1" />
-              {accounts.length} Accounts
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 font-medium">
-                AWS: {awsRegion}
-              </span>
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                ssoRegion === awsRegion 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-              }`}>
-                SSO: {ssoRegion}
-              </span>
-              {ssoRegion !== awsRegion && (
-                <span className="text-xs text-yellow-600 font-medium">
-                  ⚠️ Different regions
-                </span>
-              )}
-            </div>
-          </div>
       </div>
 
       {/* Users List */}
