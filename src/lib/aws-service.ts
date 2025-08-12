@@ -18,6 +18,7 @@ import {
   SSOAdminClient,
   ListInstancesCommand,
   ListAccountAssignmentsCommand,
+  ListAccountAssignmentsForPrincipalCommand,
   ListPermissionSetsCommand
 } from '@aws-sdk/client-sso-admin';
 import {
@@ -471,7 +472,100 @@ export class AWSService {
   }
 
   /**
-   * Get account access for a specific Identity Center user (lazy loading)
+   * Get account access for multiple Identity Center users in bulk
+   * This is the most efficient approach - fetch all users' access at once
+   */
+  async getBulkUserAccountAccess(userIds: string[], ssoRegion?: string): Promise<Map<string, CrossAccountUserAccess[]>> {
+    console.log(`Getting account access for ${userIds.length} users in bulk`);
+    
+    // Get SSO instances
+    return this.getSSOInstances(ssoRegion)
+      .then(async ssoInstances => {
+        if (ssoInstances.length === 0) {
+          console.warn('No SSO instances found');
+          return new Map();
+        }
+
+        // Use the first SSO instance
+        const ssoInstance = ssoInstances[0];
+        const ssoAdminClient = new SSOAdminClient({ region: ssoInstance.Region });
+        
+        // Get all organization accounts to map account IDs to names
+        const accounts = await this.listOrganizationAccounts();
+        const accountMap = new Map(accounts.map(acc => [acc.id, acc.name]));
+        console.log(`Retrieved ${accounts.length} organization accounts`);
+        
+        // Result map: userId -> account access list
+        const userAccessMap = new Map<string, CrossAccountUserAccess[]>();
+        
+        // Initialize all users with empty access
+        userIds.forEach(userId => {
+          userAccessMap.set(userId, accounts.map(account => ({
+            accountId: account.id,
+            accountName: account.name,
+            hasAccess: false,
+            accessType: 'SSO' as const,
+            roles: [],
+            lastChecked: new Date()
+          })));
+        });
+        
+        // Fetch assignments for all users in parallel
+        const assignmentPromises = userIds.map(async (userId) => {
+          const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
+            InstanceArn: ssoInstance.InstanceArn,
+            PrincipalType: 'USER',
+            PrincipalId: userId
+          });
+          
+          try {
+            const response = await ssoAdminClient.send(assignmentsCommand);
+            const assignments = response.AccountAssignments || [];
+            console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+            
+            // Group assignments by account ID for this user
+            const accountAssignments = new Map<string, string[]>();
+            assignments.forEach((assignment) => {
+              if (assignment.AccountId && assignment.PermissionSetArn) {
+                const accountId = assignment.AccountId;
+                const existingRoles = accountAssignments.get(accountId) || [];
+                existingRoles.push(assignment.PermissionSetArn);
+                accountAssignments.set(accountId, existingRoles);
+              }
+            });
+            
+            // Update the user's access map
+            const userAccess = userAccessMap.get(userId) || [];
+            userAccess.forEach(access => {
+              const roles = accountAssignments.get(access.accountId) || [];
+              if (roles.length > 0) {
+                access.hasAccess = true;
+                access.roles = roles;
+              }
+            });
+            
+            return { userId, success: true };
+          } catch (error) {
+            console.error(`Error getting account assignments for user ${userId}:`, error);
+            return { userId, success: false };
+          }
+        });
+        
+        const results = await Promise.all(assignmentPromises);
+        const successCount = results.filter(r => r.success).length;
+        console.log(`Successfully fetched access for ${successCount}/${userIds.length} users`);
+        
+        return userAccessMap;
+      })
+      .catch(error => {
+        console.error('Error getting bulk account access:', error);
+        return new Map();
+      });
+  }
+
+  /**
+   * Get account access for a specific Identity Center user using ListAccountAssignmentsForPrincipal
+   * This is much more efficient than checking each account individually
    */
   async getUserAccountAccess(userId: string, ssoRegion?: string): Promise<CrossAccountUserAccess[]> {
     console.log(`Getting account access for user: ${userId}`);
@@ -486,27 +580,76 @@ export class AWSService {
 
         // Use the first SSO instance
         const ssoInstance = ssoInstances[0];
+        const ssoAdminClient = new SSOAdminClient({ region: ssoInstance.Region });
         
-        // Get all organization accounts
+        // Get all organization accounts to map account IDs to names
         const accounts = await this.listOrganizationAccounts();
-        console.log(`Checking access across ${accounts.length} accounts for user ${userId}`);
+        const accountMap = new Map(accounts.map(acc => [acc.id, acc.name]));
+        console.log(`Retrieved ${accounts.length} organization accounts for user ${userId}`);
         
-        const accountAccess: CrossAccountUserAccess[] = [];
+        // Use ListAccountAssignmentsForPrincipal to get all assignments for this user in one call
+        const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
+          InstanceArn: ssoInstance.InstanceArn,
+          PrincipalType: 'USER',
+          PrincipalId: userId
+        });
         
-        for (const account of accounts) {
-          // Check SSO assignments for each account
-          const access = await this.checkIdentityCenterUserInAccount(
-            userId, 
-            account.id, 
-            ssoInstance.InstanceArn,
-            ssoInstance.Region
-          );
-          access.accountName = account.name;
-          accountAccess.push(access);
-        }
-        
-        console.log(`Found ${accountAccess.filter(a => a.hasAccess).length} accessible accounts for user ${userId}`);
-        return accountAccess;
+        return ssoAdminClient.send(assignmentsCommand)
+          .then(response => {
+            const assignments = response.AccountAssignments || [];
+            console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+            
+            // Group assignments by account ID
+            const accountAssignments = new Map<string, string[]>();
+            
+            assignments.forEach((assignment) => {
+              if (assignment.AccountId && assignment.PermissionSetArn) {
+                const accountId = assignment.AccountId;
+                const existingRoles = accountAssignments.get(accountId) || [];
+                existingRoles.push(assignment.PermissionSetArn);
+                accountAssignments.set(accountId, existingRoles);
+              }
+            });
+            
+            // Create result for all accounts (including those without access)
+            const accountAccess: CrossAccountUserAccess[] = [];
+            
+            // Add accounts with access
+            accountAssignments.forEach((roles, accountId) => {
+              accountAccess.push({
+                accountId,
+                accountName: accountMap.get(accountId) || accountId,
+                hasAccess: true,
+                accessType: 'SSO' as const,
+                roles,
+                lastChecked: new Date()
+              });
+            });
+            
+            // Add accounts without access (optional - you might want to only show accessible accounts)
+            accounts.forEach(account => {
+              if (!accountAssignments.has(account.id)) {
+                accountAccess.push({
+                  accountId: account.id,
+                  accountName: account.name,
+                  hasAccess: false,
+                  accessType: 'SSO' as const,
+                  roles: [],
+                  lastChecked: new Date()
+                });
+              }
+            });
+            
+            const accessibleCount = accountAccess.filter(a => a.hasAccess).length;
+            console.log(`Found ${accessibleCount} accessible accounts out of ${accounts.length} total accounts for user ${userId}`);
+            
+            return accountAccess;
+          })
+          .catch(error => {
+            console.error(`Error getting account assignments for user ${userId}:`, error);
+            // Fallback to empty array or you could fallback to the old method
+            return [];
+          });
       })
       .catch(error => {
         console.error(`Error getting account access for user ${userId}:`, error);

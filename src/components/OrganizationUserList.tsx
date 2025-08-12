@@ -13,6 +13,7 @@ export default function OrganizationUserList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [loadingUserAccess, setLoadingUserAccess] = useState<string | null>(null);
+  const [loadingBulkAccess, setLoadingBulkAccess] = useState(false);
   const [hasDataBeenFetched, setHasDataBeenFetched] = useState(false);
 
   const fetchData = async () => {
@@ -58,6 +59,46 @@ export default function OrganizationUserList() {
   //   fetchData();
   // }, [ssoRegion, awsRegion]);
 
+  const loadAllUsersAccess = async () => {
+    if (users.length === 0) return;
+    
+    setLoadingBulkAccess(true);
+    
+    const userIds = users.map(user => user.user.UserId);
+    
+    fetch('/api/organization/users/bulk-access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userIds,
+        ssoRegion: encodeURIComponent(ssoRegion),
+        region: encodeURIComponent(awsRegion)
+      })
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          // Update all users' account access
+          setUsers(prevUsers => 
+            prevUsers.map(user => ({
+              ...user,
+              accountAccess: result.data[user.user.UserId] || []
+            }))
+          );
+        } else {
+          console.error('Failed to load bulk user access:', result.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading bulk user access:', error);
+      })
+      .finally(() => {
+        setLoadingBulkAccess(false);
+      });
+  };
+
   const handleUserClick = async (orgUser: OrganizationUser) => {
     const userId = orgUser.user.UserId;
     
@@ -74,7 +115,7 @@ export default function OrganizationUserList() {
       return;
     }
 
-    // Load account access on demand
+    // Load account access on demand using the new efficient API
     setLoadingUserAccess(userId);
     
     fetch(`/api/organization/users/${encodeURIComponent(userId)}?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`)
@@ -233,8 +274,26 @@ export default function OrganizationUserList() {
               </p>
             </div>
             
-            {/* Refresh Button */}
-            <div className="mt-4 lg:mt-0">
+            {/* Action Buttons */}
+            <div className="mt-4 lg:mt-0 flex gap-2">
+              <button
+                onClick={loadAllUsersAccess}
+                disabled={loadingBulkAccess || users.length === 0}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingBulkAccess ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading All Access...
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-4 h-4 mr-2" />
+                    Load All Access
+                  </>
+                )}
+              </button>
+              
               <button
                 onClick={fetchData}
                 disabled={loading}
@@ -284,6 +343,9 @@ export default function OrganizationUserList() {
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 font-medium">
               SSO: {ssoRegion} (env)
             </span>
+          </div>
+          <div className="text-xs text-gray-400">
+            💡 Use "Load All Access" for efficient bulk loading
           </div>
         </div>
         
