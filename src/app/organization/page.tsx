@@ -159,16 +159,10 @@ export default function OrganizationPage() {
         region: encodeURIComponent(awsRegion)
       }),
       cache: 'no-store'
-    }).catch(error => {
-      console.error('Error loading bulk user access:', error);
-      return null;
     });
     
     if (response) {
-      const result = await response.json().catch(error => {
-        console.error('Error parsing bulk user access response:', error);
-        return { success: false };
-      });
+      const result = await response.json();
       
       if (result.success) {
         // Update users' account access
@@ -178,8 +172,6 @@ export default function OrganizationPage() {
             accountAccess: result.data[user.user.UserId] || []
           }))
         );
-      } else {
-        console.error('Failed to load bulk user access:', result.error);
       }
     }
     
@@ -255,18 +247,6 @@ export default function OrganizationPage() {
           icon={<Building2 className="h-12 w-12 text-blue-600" />}
           actions={actions}
         >
-          {/* Help text for region selectors - Only show if different */}
-          {ssoRegion !== awsRegion && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start">
-                <AlertCircle className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
-                  <strong>Region Configuration:</strong> Your AWS region ({awsRegion}) and IAM Identity Center region ({ssoRegion}) are different. 
-                  The Identity Center region is configured via environment variables.
-                </div>
-              </div>
-            </div>
-          )}
           
           <div className="flex items-center space-x-6 text-sm text-gray-500">
             <div className="flex items-center">
@@ -282,7 +262,7 @@ export default function OrganizationPage() {
           {users.length > 0 && users[0]?.user?.IdentityStoreId && !users[0].user.IdentityStoreId.startsWith('d-') && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="text-sm text-blue-800">
-                <strong>Note:</strong> IAM Identity Center is not available, showing IAM users across organization accounts instead.
+                Showing IAM users instead of Identity Center users.
               </div>
             </div>
           )}
@@ -313,17 +293,9 @@ export default function OrganizationPage() {
           <div className="bg-gray-50 rounded-lg p-8 text-center">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600">
               No users found in your organization accounts.
             </p>
-            <div className="text-sm text-gray-500 space-y-2">
-              <p>This could mean:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>IAM Identity Center is not enabled</li>
-                <li>No IAM users exist in the organization accounts you have access to</li>
-                <li>You may not have sufficient permissions to list users</li>
-              </ul>
-            </div>
           </div>
         )}
       </div>
