@@ -2,23 +2,18 @@
 
 import { useState } from 'react';
 import { Users, Building2, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
-import RegionSelector from './RegionSelector';
+import { useRegion } from '@/contexts/RegionContext';
 import type { OrganizationUser, OrganizationAccount } from '@/types/aws';
 
 export default function OrganizationUserList() {
+  const { awsRegion, ssoRegion } = useRegion();
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [accounts, setAccounts] = useState<OrganizationAccount[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [loadingUserAccess, setLoadingUserAccess] = useState<string | null>(null);
-  const [awsRegion, setAwsRegion] = useState<string>(
-    process.env.NEXT_PUBLIC_AWS_DEFAULT_REGION || 'us-east-1'
-  );
   const [hasDataBeenFetched, setHasDataBeenFetched] = useState(false);
-
-  // Get SSO region from environment variables
-  const ssoRegion = process.env.NEXT_PUBLIC_AWS_SSO_REGION || 'us-east-1';
 
   const fetchData = async () => {
     setLoading(true);
@@ -128,47 +123,28 @@ export default function OrganizationUserList() {
   if (!hasDataBeenFetched && !loading) {
     return (
       <div className="space-y-6">
-        {/* Header with Region Selectors */}
+        {/* Header */}
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between mb-6">
-            <div className="mb-4 xl:mb-0">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Organization Users</h2>
-              <p className="text-gray-600">
-                Select your regions and fetch organization data to view user access across accounts
-              </p>
-            </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Organization Users</h2>
+            <p className="text-gray-600 mb-6">
+              Configure your regions using the region selector (bottom-right), then fetch organization data to view user access across accounts
+            </p>
             
-            {/* Region Selectors */}
-            <div className="flex flex-col sm:flex-row gap-4 min-w-0 xl:min-w-96">
-              {/* AWS Region Selector */}
-              <RegionSelector
-                label="AWS Region"
-                value={awsRegion}
-                onChange={setAwsRegion}
-                disabled={loading}
-                icon={<Building2 className="w-4 h-4 text-green-600 mr-2" />}
-                description="Primary AWS region for operations"
-                colorScheme="green"
-                className="flex-1"
-              />
-            </div>
-          </div>
-
-          {/* Region Information */}
-          {ssoRegion !== awsRegion && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start">
-                <AlertCircle className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
-                  <strong>Region Configuration:</strong> Your AWS region ({awsRegion}) and IAM Identity Center region ({ssoRegion}) are different. 
-                  The Identity Center region is configured via environment variables.
+            {/* Region Information */}
+            {ssoRegion !== awsRegion && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start">
+                  <AlertCircle className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800">
+                    <strong>Region Configuration:</strong> Your AWS region ({awsRegion}) and IAM Identity Center region ({ssoRegion}) are different. 
+                    The Identity Center region is configured via environment variables.
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Fetch Data Button */}
-          <div className="text-center">
+            {/* Fetch Data Button */}
             <button
               onClick={fetchData}
               disabled={loading}
@@ -189,16 +165,16 @@ export default function OrganizationUserList() {
             <p className="mt-2 text-sm text-gray-500">
               Click to load users and accounts from your AWS Organization
             </p>
-          </div>
 
-          {/* Current Region Selection */}
-          <div className="mt-4 flex justify-center items-center space-x-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 font-medium">
-              AWS: {awsRegion}
-            </span>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 font-medium">
-              SSO: {ssoRegion} (env)
-            </span>
+            {/* Current Region Selection */}
+            <div className="mt-4 flex justify-center items-center space-x-2">
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 font-medium">
+                AWS: {awsRegion}
+              </span>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 font-medium">
+                SSO: {ssoRegion} (env)
+              </span>
+            </div>
           </div>
         </div>
 
@@ -247,52 +223,37 @@ export default function OrganizationUserList() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between mb-6">
-            <div className="mb-4 xl:mb-0">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
+            <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Organization Users</h2>
               <p className="text-gray-600">
                 View which users have access to which accounts in your organization
               </p>
             </div>
             
-            {/* Region Selectors and Refresh Button */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-4 min-w-0 xl:min-w-96">
-                {/* AWS Region Selector */}
-                <RegionSelector
-                  label="AWS Region"
-                  value={awsRegion}
-                  onChange={setAwsRegion}
-                  disabled={loading}
-                  icon={<Building2 className="w-4 h-4 text-green-600 mr-2" />}
-                  description="Primary AWS region for operations"
-                  colorScheme="green"
-                  className="flex-1"
-                />
-              </div>
-              
-              {/* Refresh Button */}
-              <div className="flex justify-center">
-                <button
-                  onClick={fetchData}
-                  disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Refreshing...
-                    </>
-                  ) : (
-                    <>
-                      <Building2 className="w-4 h-4 mr-2" />
-                      Refresh Data
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Refresh Button */}
+            <div className="mt-4 lg:mt-0">
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Refresh Data
+                  </>
+                )}
+              </button>
             </div>
-          </div>        {/* Help text for region selectors */}
+          </div>
+        
+        {/* Help text for region selectors */}
         {ssoRegion !== awsRegion && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start">

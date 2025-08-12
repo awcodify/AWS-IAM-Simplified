@@ -6,6 +6,7 @@ import UserList from '@/components/UserList';
 import PermissionView from '@/components/PermissionView';
 import OrganizationUserList from '@/components/OrganizationUserList';
 import AWSConfigDiagnostic from '@/components/AWSConfigDiagnostic';
+import Header from '@/components/Header';
 import type { UserPermissions, AccountInfo, IAMUser } from '@/types/aws';
 
 export default function Home() {
@@ -73,22 +74,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">AWS IAM Dashboard</h1>
-              <p className="text-gray-600 mt-1">Simplified IAM management and permission tracking</p>
-            </div>
-            {accountInfo && (
-              <div className="flex items-center text-sm text-gray-600">
-                <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
-                Account: {accountInfo.accountId}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <Header accountInfo={accountInfo} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* AWS Connection Status */}
