@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield } from 'lucide-react';
+import { Shield, RefreshCw } from 'lucide-react';
 import UserList from '@/components/UserList';
 import PermissionView from '@/components/PermissionView';
 import PageLayout from '@/components/PageLayout';
@@ -102,25 +102,55 @@ export default function SingleAccountPage() {
 
       {/* Main Content */}
       {awsConnected === true && (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* Page Header */}
           <PageHeader
-            title="Single Account View"
-            description="Select a user to see what resources they can access in the current AWS account"
+            title="IAM Users"
+            description="Select a user to view their permissions and accessible resources"
             icon={<Shield className="h-12 w-12 text-blue-600" />}
-          />
+            actions={
+              <button
+                onClick={loadUsers}
+                disabled={usersLoading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {usersLoading ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </>
+                )}
+              </button>
+            }
+          >
+            <div className="flex items-center space-x-6 text-sm text-gray-500">
+              <div className="flex items-center">
+                <Shield className="w-4 h-4 mr-1" />
+                {users.length} Users
+              </div>
+            </div>
+          </PageHeader>
           
-          <UserList 
-            users={users} 
-            onUserSelect={handleUserSelect} 
-            loading={usersLoading || loading}
-            selectedUser={selectedUser}
-          />
+          {/* Users List */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <UserList 
+              users={users} 
+              onUserSelect={handleUserSelect} 
+              loading={usersLoading || loading}
+              selectedUser={selectedUser}
+            />
+          </div>
 
           {/* Error Display */}
           {error && (
             <ErrorDisplay
               message={error}
+              onRetry={loadUsers}
             />
           )}
 

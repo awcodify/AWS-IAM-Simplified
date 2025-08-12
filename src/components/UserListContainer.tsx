@@ -72,18 +72,6 @@ export default function UserListContainer(props: UserListContainerProps) {
     
     return (
       <div className={`w-full ${className || ''}`}>
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <Users className="h-5 w-5 text-blue-600 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">
-              IAM Users ({users.length})
-            </h3>
-          </div>
-          <div className="text-sm text-gray-500">
-            Click a user to view their permissions
-          </div>
-        </div>
-
         <div className="space-y-3">
           {users.map((user) => (
             <UserCard
