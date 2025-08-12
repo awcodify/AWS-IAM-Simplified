@@ -22,7 +22,9 @@ export default function SingleAccountPage() {
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
-    const response = await fetch(`/api/users?region=${encodeURIComponent(awsRegion)}`);
+    const response = await fetch(`/api/users?region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
     const result = await response.json();
     
     if (result.success) {
@@ -34,7 +36,9 @@ export default function SingleAccountPage() {
   }, [awsRegion]);
 
   const checkAWSConnection = useCallback(async () => {
-    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`);
+    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
     const result = await response.json();
     
     if (result.success) {
@@ -59,7 +63,9 @@ export default function SingleAccountPage() {
     setError(null);
     setUserPermissions(null);
 
-    const response = await fetch(`/api/users/${encodeURIComponent(username)}?region=${encodeURIComponent(awsRegion)}`);
+    const response = await fetch(`/api/users/${encodeURIComponent(username)}?region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
     const result = await response.json();
 
     if (result.success) {

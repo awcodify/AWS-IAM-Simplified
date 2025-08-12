@@ -25,8 +25,12 @@ export default function OrganizationUserList() {
     setSelectedUser(null);
 
     // Fetch accounts and users in parallel
-    const accountsPromise = fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`);
-    const usersPromise = fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`);
+    const accountsPromise = fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
+    const usersPromise = fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
     
     Promise.all([accountsPromise, usersPromise])
       .then(async ([accountsResponse, usersResponse]) => {
@@ -76,7 +80,8 @@ export default function OrganizationUserList() {
         userIds,
         ssoRegion: encodeURIComponent(ssoRegion),
         region: encodeURIComponent(awsRegion)
-      })
+      }),
+      cache: 'no-store'
     })
       .then(response => response.json())
       .then(result => {
@@ -119,7 +124,9 @@ export default function OrganizationUserList() {
     // Load account access on demand using the new efficient API
     setLoadingUserAccess(userId);
     
-    fetch(`/api/organization/users/${encodeURIComponent(userId)}?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`)
+    fetch(`/api/organization/users/${encodeURIComponent(userId)}?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    })
       .then(response => response.json())
       .then(result => {
         if (result.success) {

@@ -42,7 +42,9 @@ export default function AWSConfigDiagnostic() {
     setDiagnostics([...checks]);
 
     // Test AWS Connection
-    fetch('/api/account')
+    fetch('/api/account', {
+      cache: 'no-store'
+    })
       .then(response => response.json())
       .then(accountData => {
         if (accountData.success) {
@@ -71,7 +73,9 @@ export default function AWSConfigDiagnostic() {
       });
 
     // Test Organization Access
-    fetch('/api/organization/accounts')
+    fetch('/api/organization/accounts', {
+      cache: 'no-store'
+    })
       .then(response => response.json())
       .then(orgAccountsData => {
         if (orgAccountsData.success) {
@@ -111,7 +115,9 @@ export default function AWSConfigDiagnostic() {
       });
 
     // Test IAM Identity Center (simplified - just check if we can list users)
-    fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}`)
+    fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}`, {
+      cache: 'no-store'
+    })
       .then(response => response.json())
       .then(usersData => {
         if (usersData.success) {

@@ -12,7 +12,9 @@ export default function DiagnosticsPage() {
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
 
   const checkAWSConnection = useCallback(async () => {
-    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`);
+    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
     const result = await response.json();
     
     if (result.success) {
