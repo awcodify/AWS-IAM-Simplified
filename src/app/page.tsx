@@ -1,103 +1,168 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
+import UserList from '@/components/UserList';
+import PermissionView from '@/components/PermissionView';
+import type { UserPermissions, AccountInfo, IAMUser } from '@/types/aws';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
+  const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
+  const [users, setUsers] = useState<IAMUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [awsConnected, setAwsConnected] = useState<boolean | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Check AWS connection on mount
+  useEffect(() => {
+    checkAWSConnection();
+  }, []);
+
+  const checkAWSConnection = async () => {
+    const response = await fetch('/api/account');
+    const result = await response.json();
+    
+    if (result.success) {
+      setAccountInfo(result.data);
+      setAwsConnected(true);
+      // Load users after successful connection
+      loadUsers();
+    } else {
+      setAwsConnected(false);
+      setError(result.error || 'Failed to connect to AWS');
+    }
+  };
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    const response = await fetch('/api/users');
+    const result = await response.json();
+    
+    if (result.success) {
+      setUsers(result.data || []);
+    } else {
+      setError(result.error || 'Failed to load users');
+    }
+    setUsersLoading(false);
+  };
+
+  const handleUserSelect = async (username: string) => {
+    setSelectedUser(username);
+    setLoading(true);
+    setError(null);
+    setUserPermissions(null);
+
+    const response = await fetch(`/api/users/${encodeURIComponent(username)}`);
+    const result = await response.json();
+
+    if (result.success) {
+      setUserPermissions(result.data);
+    } else {
+      setError(result.error || 'Failed to fetch user permissions');
+    }
+    
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">AWS IAM Dashboard</h1>
+              <p className="text-gray-600 mt-1">Simplified IAM management and permission tracking</p>
+            </div>
+            {accountInfo && (
+              <div className="flex items-center text-sm text-gray-600">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
+                Account: {accountInfo.accountId}
+              </div>
+            )}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* AWS Connection Status */}
+        {awsConnected === false && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">AWS Connection Failed</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Unable to connect to AWS. Please check your credentials and configuration.
+                </p>
+                <div className="mt-3 text-xs text-red-600">
+                  <p><strong>Setup instructions:</strong></p>
+                  <ol className="list-decimal list-inside mt-1 space-y-1">
+                    <li>Configure AWS credentials using <code className="bg-red-100 px-1 rounded">aws configure</code></li>
+                    <li>Or set environment variables: <code className="bg-red-100 px-1 rounded">AWS_ACCESS_KEY_ID</code>, <code className="bg-red-100 px-1 rounded">AWS_SECRET_ACCESS_KEY</code></li>
+                    <li>Ensure your IAM user has necessary permissions to read IAM resources</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        {awsConnected === true && (
+          <div className="space-y-8">
+            {/* Users List Section */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <div className="text-center mb-6">
+                <Shield className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                <h2 className="text-xl font-semibold text-gray-900">IAM Users</h2>
+                <p className="text-gray-600 mt-1">
+                  Select a user to see what resources they can access
+                </p>
+              </div>
+              
+              <UserList 
+                users={users} 
+                onUserSelect={handleUserSelect} 
+                loading={usersLoading}
+                selectedUser={selectedUser}
+              />
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800">Error</h3>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Results */}
+            {userPermissions && accountInfo && (
+              <PermissionView 
+                userPermissions={userPermissions} 
+                accountId={accountInfo.accountId}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {awsConnected === null && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-gray-600 mt-3">Connecting to AWS...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
