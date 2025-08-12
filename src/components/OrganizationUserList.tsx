@@ -22,34 +22,35 @@ export default function OrganizationUserList() {
     setAccounts([]);
     setSelectedUser(null);
 
-    try {
-      // Fetch accounts and users in parallel
-      const accountsPromise = fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`);
-      const usersPromise = fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`);
-      
-      const [accountsResponse, usersResponse] = await Promise.all([accountsPromise, usersPromise]);
+    // Fetch accounts and users in parallel
+    const accountsPromise = fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`);
+    const usersPromise = fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`);
+    
+    Promise.all([accountsPromise, usersPromise])
+      .then(async ([accountsResponse, usersResponse]) => {
+        const accountsData = await accountsResponse.json();
+        const usersData = await usersResponse.json();
 
-      const accountsData = await accountsResponse.json();
-      const usersData = await usersResponse.json();
+        if (!accountsData.success) {
+          setError(accountsData.error || 'Failed to fetch organization accounts');
+          return;
+        }
 
-      if (!accountsData.success) {
-        setError(accountsData.error || 'Failed to fetch organization accounts');
-        return;
-      }
+        if (!usersData.success) {
+          setError(usersData.error || 'Failed to fetch organization users');
+          return;
+        }
 
-      if (!usersData.success) {
-        setError(usersData.error || 'Failed to fetch organization users');
-        return;
-      }
-
-      setAccounts(accountsData.data || []);
-      setUsers(usersData.data || []);
-      setHasDataBeenFetched(true);
-    } catch (error) {
-      setError(`Failed to fetch data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
+        setAccounts(accountsData.data || []);
+        setUsers(usersData.data || []);
+        setHasDataBeenFetched(true);
+      })
+      .catch(error => {
+        setError(`Failed to fetch data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   // Remove the automatic fetch on mount and region changes
@@ -76,27 +77,28 @@ export default function OrganizationUserList() {
     // Load account access on demand
     setLoadingUserAccess(userId);
     
-    try {
-      const response = await fetch(`/api/organization/users/${encodeURIComponent(userId)}?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        // Update the user's account access in the state
-        setUsers(prevUsers => 
-          prevUsers.map(user => 
-            user.user.UserId === userId 
-              ? { ...user, accountAccess: result.data || [] }
-              : user
-          )
-        );
-      } else {
-        console.error('Failed to load user account access:', result.error);
-      }
-    } catch (error) {
-      console.error('Error loading user account access:', error);
-    } finally {
-      setLoadingUserAccess(null);
-    }
+    fetch(`/api/organization/users/${encodeURIComponent(userId)}?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`)
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          // Update the user's account access in the state
+          setUsers(prevUsers => 
+            prevUsers.map(user => 
+              user.user.UserId === userId 
+                ? { ...user, accountAccess: result.data || [] }
+                : user
+            )
+          );
+        } else {
+          console.error('Failed to load user account access:', result.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading user account access:', error);
+      })
+      .finally(() => {
+        setLoadingUserAccess(null);
+      });
   };
 
   const getAccessStatusIcon = (hasAccess: boolean) => {

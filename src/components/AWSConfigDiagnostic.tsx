@@ -42,115 +42,116 @@ export default function AWSConfigDiagnostic() {
     setDiagnostics([...checks]);
 
     // Test AWS Connection
-    try {
-      const accountResponse = await fetch('/api/account');
-      const accountData = await accountResponse.json();
-      
-      if (accountData.success) {
-        checks[0] = { 
-          check: 'AWS Connection', 
-          status: 'success', 
-          message: 'AWS credentials are valid',
-          details: `Account: ${accountData.data.accountId}, User: ${accountData.data.arn}`
-        };
-        checks[1] = { 
-          check: 'Account Info', 
-          status: 'success', 
-          message: `Connected to account ${accountData.data.accountId}`,
-          details: accountData.data.arn
-        };
-      } else {
-        checks[0] = { check: 'AWS Connection', status: 'error', message: accountData.error };
+    fetch('/api/account')
+      .then(response => response.json())
+      .then(accountData => {
+        if (accountData.success) {
+          checks[0] = { 
+            check: 'AWS Connection', 
+            status: 'success', 
+            message: 'AWS credentials are valid',
+            details: `Account: ${accountData.data.accountId}, User: ${accountData.data.arn}`
+          };
+          checks[1] = { 
+            check: 'Account Info', 
+            status: 'success', 
+            message: `Connected to account ${accountData.data.accountId}`,
+            details: accountData.data.arn
+          };
+        } else {
+          checks[0] = { check: 'AWS Connection', status: 'error', message: accountData.error };
+          checks[1] = { check: 'Account Info', status: 'error', message: 'Cannot get account info' };
+        }
+        setDiagnostics([...checks]);
+      })
+      .catch(error => {
+        checks[0] = { check: 'AWS Connection', status: 'error', message: 'Failed to connect to AWS' };
         checks[1] = { check: 'Account Info', status: 'error', message: 'Cannot get account info' };
-      }
-    } catch (error) {
-      checks[0] = { check: 'AWS Connection', status: 'error', message: 'Failed to connect to AWS' };
-      checks[1] = { check: 'Account Info', status: 'error', message: 'Cannot get account info' };
-    }
-
-    setDiagnostics([...checks]);
+        setDiagnostics([...checks]);
+      });
 
     // Test Organization Access
-    try {
-      const orgAccountsResponse = await fetch('/api/organization/accounts');
-      const orgAccountsData = await orgAccountsResponse.json();
-      
-      if (orgAccountsData.success) {
-        const accountCount = orgAccountsData.data?.length || 0;
-        if (accountCount > 0) {
-          checks[2] = { 
-            check: 'Organization Access', 
-            status: 'success', 
-            message: `Found ${accountCount} organization accounts`,
-            details: `This means you have access to AWS Organizations and can see accounts in your org.`
-          };
+    fetch('/api/organization/accounts')
+      .then(response => response.json())
+      .then(orgAccountsData => {
+        if (orgAccountsData.success) {
+          const accountCount = orgAccountsData.data?.length || 0;
+          if (accountCount > 0) {
+            checks[2] = { 
+              check: 'Organization Access', 
+              status: 'success', 
+              message: `Found ${accountCount} organization accounts`,
+              details: `This means you have access to AWS Organizations and can see accounts in your org.`
+            };
+          } else {
+            checks[2] = { 
+              check: 'Organization Access', 
+              status: 'warning', 
+              message: 'No organization accounts found',
+              details: 'This account might not be part of an AWS Organization, or you might not have permissions to list accounts.'
+            };
+          }
         } else {
           checks[2] = { 
             check: 'Organization Access', 
-            status: 'warning', 
-            message: 'No organization accounts found',
-            details: 'This account might not be part of an AWS Organization, or you might not have permissions to list accounts.'
+            status: 'error', 
+            message: 'Cannot access organization accounts',
+            details: orgAccountsData.error
           };
         }
-      } else {
+        setDiagnostics([...checks]);
+      })
+      .catch(error => {
         checks[2] = { 
           check: 'Organization Access', 
           status: 'error', 
-          message: 'Cannot access organization accounts',
-          details: orgAccountsData.error
+          message: 'Failed to check organization access' 
         };
-      }
-    } catch (error) {
-      checks[2] = { 
-        check: 'Organization Access', 
-        status: 'error', 
-        message: 'Failed to check organization access' 
-      };
-    }
-
-    setDiagnostics([...checks]);
+        setDiagnostics([...checks]);
+      });
 
     // Test IAM Identity Center (simplified - just check if we can list users)
-    try {
-      const usersResponse = await fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}`);
-      const usersData = await usersResponse.json();
-      
-      if (usersData.success) {
-        const userCount = usersData.data?.length || 0;
-        if (userCount > 0) {
-          checks[3] = { 
-            check: 'IAM Identity Center', 
-            status: 'success', 
-            message: `Found ${userCount} users in ${ssoRegion}`,
-            details: `IAM Identity Center is properly configured and accessible in region ${ssoRegion}. You can now use the Organization View.`
-          };
+    fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}`)
+      .then(response => response.json())
+      .then(usersData => {
+        if (usersData.success) {
+          const userCount = usersData.data?.length || 0;
+          if (userCount > 0) {
+            checks[3] = { 
+              check: 'IAM Identity Center', 
+              status: 'success', 
+              message: `Found ${userCount} users in ${ssoRegion}`,
+              details: `IAM Identity Center is properly configured and accessible in region ${ssoRegion}. You can now use the Organization View.`
+            };
+          } else {
+            checks[3] = { 
+              check: 'IAM Identity Center', 
+              status: 'warning', 
+              message: `⚠️ No users found in ${ssoRegion}`,
+              details: `IAM Identity Center is accessible in ${ssoRegion} but no users are configured, or they might be in a different region.`
+            };
+          }
         } else {
           checks[3] = { 
             check: 'IAM Identity Center', 
-            status: 'warning', 
-            message: `⚠️ No users found in ${ssoRegion}`,
-            details: `IAM Identity Center is accessible in ${ssoRegion} but no users are configured, or they might be in a different region.`
+            status: 'error', 
+            message: `❌ Not accessible in ${ssoRegion}`,
+            details: `IAM Identity Center is not accessible in ${ssoRegion}. Try a different region or check if it's enabled.`
           };
         }
-      } else {
+        setDiagnostics([...checks]);
+        setIsRunning(false);
+      })
+      .catch(error => {
         checks[3] = { 
           check: 'IAM Identity Center', 
           status: 'error', 
-          message: `❌ Not accessible in ${ssoRegion}`,
-          details: `IAM Identity Center is not accessible in ${ssoRegion}. Try a different region or check if it's enabled.`
+          message: 'Failed to check IAM Identity Center',
+          details: 'Network error or permission issue'
         };
-      }
-    } catch (error) {
-      checks[3] = { 
-        check: 'IAM Identity Center', 
-        status: 'error', 
-        message: 'Failed to check IAM Identity Center',
-        details: 'Network error or permission issue'
-      };
-    }
-
-    setDiagnostics([...checks]);
-    setIsRunning(false);
+        setDiagnostics([...checks]);
+        setIsRunning(false);
+      });
   };
 
   const getStatusIcon = (status: string) => {

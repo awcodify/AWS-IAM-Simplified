@@ -275,36 +275,37 @@ export class AWSService {
   async getSSOInstances(region?: string): Promise<SSOInstance[]> {
     const targetRegion = region || 'us-east-1';
     
-    try {
-      console.log(`Attempting to list SSO instances in region: ${targetRegion}...`);
-      
-      const ssoAdminClient = new SSOAdminClient({ region: targetRegion });
-      const command = new ListInstancesCommand({});
-      const response = await ssoAdminClient.send(command);
-      
-      console.log(`SSO Instances response for ${targetRegion}:`, response);
-      
-      if (response.Instances && response.Instances.length > 0) {
-        console.log(`Found SSO instances in region: ${targetRegion}`);
+    console.log(`Attempting to list SSO instances in region: ${targetRegion}...`);
+    
+    const ssoAdminClient = new SSOAdminClient({ region: targetRegion });
+    const command = new ListInstancesCommand({});
+    
+    return ssoAdminClient.send(command)
+      .then(response => {
+        console.log(`SSO Instances response for ${targetRegion}:`, response);
         
-        const instances = response.Instances.map(instance => ({
-          InstanceArn: instance.InstanceArn || '',
-          IdentityStoreId: instance.IdentityStoreId || '',
-          Name: instance.Name,
-          Status: instance.Status,
-          Region: targetRegion
-        }));
-        
-        console.log(`Found ${instances.length} SSO instances in ${targetRegion}`);
-        return instances;
-      } else {
-        console.log(`No SSO instances found in region: ${targetRegion}`);
-        return [];
-      }
-    } catch (error) {
-      console.error(`Error checking SSO instances in region ${targetRegion}:`, error);
-      throw error;
-    }
+        if (response.Instances && response.Instances.length > 0) {
+          console.log(`Found SSO instances in region: ${targetRegion}`);
+          
+          const instances = response.Instances.map(instance => ({
+            InstanceArn: instance.InstanceArn || '',
+            IdentityStoreId: instance.IdentityStoreId || '',
+            Name: instance.Name,
+            Status: instance.Status,
+            Region: targetRegion
+          }));
+          
+          console.log(`Found ${instances.length} SSO instances in ${targetRegion}`);
+          return instances;
+        } else {
+          console.log(`No SSO instances found in region: ${targetRegion}`);
+          return [];
+        }
+      })
+      .catch(error => {
+        console.error(`Error checking SSO instances in region ${targetRegion}:`, error);
+        throw error;
+      });
   }
 
   /**
@@ -341,63 +342,63 @@ export class AWSService {
    * Get organization-wide user information (using IAM Identity Center)
    */
   async getOrganizationUsers(ssoRegion?: string): Promise<OrganizationUser[]> {
-    try {
-      console.log('Starting getOrganizationUsers...');
-      
-      // Get SSO instances
-      const ssoInstances = await this.getSSOInstances(ssoRegion);
-      
-      if (ssoInstances.length === 0) {
-        console.warn(`No SSO instances found in region: ${ssoRegion || 'us-east-1'}`);
-        console.warn('This could mean:');
-        console.warn('1. IAM Identity Center is not enabled in this AWS account');
-        console.warn('2. You do not have permissions to access SSO Admin service');
-        console.warn('3. IAM Identity Center is enabled in a different region');
+    console.log('Starting getOrganizationUsers...');
+    
+    // Get SSO instances
+    return this.getSSOInstances(ssoRegion)
+      .then(async ssoInstances => {
+        if (ssoInstances.length === 0) {
+          console.warn(`No SSO instances found in region: ${ssoRegion || 'us-east-1'}`);
+          console.warn('This could mean:');
+          console.warn('1. IAM Identity Center is not enabled in this AWS account');
+          console.warn('2. You do not have permissions to access SSO Admin service');
+          console.warn('3. IAM Identity Center is enabled in a different region');
+          
+          // Fallback: Try to get IAM users from organization accounts instead
+          console.log('Falling back to IAM users across organization accounts...');
+          return await this.getOrganizationIAMUsers();
+        }
+
+        console.log(`Found ${ssoInstances.length} SSO instance(s)`);
         
-        // Fallback: Try to get IAM users from organization accounts instead
-        console.log('Falling back to IAM users across organization accounts...');
-        return await this.getOrganizationIAMUsers();
-      }
+        // Use the first SSO instance (typically there's only one)
+        const ssoInstance = ssoInstances[0];
+        console.log('Using SSO instance:', ssoInstance);
+        
+        const currentAccount = await this.getAccountInfo();
+        
+        if (!currentAccount) {
+          console.error('Could not get current account info');
+          return [];
+        }
 
-      console.log(`Found ${ssoInstances.length} SSO instance(s)`);
-      
-      // Use the first SSO instance (typically there's only one)
-      const ssoInstance = ssoInstances[0];
-      console.log('Using SSO instance:', ssoInstance);
-      
-      const currentAccount = await this.getAccountInfo();
-      
-      if (!currentAccount) {
-        console.error('Could not get current account info');
-        return [];
-      }
-
-      // Get users from Identity Center
-      console.log('Getting Identity Center users...');
-      const identityCenterUsers = await this.getIdentityCenterUsers(ssoInstance.IdentityStoreId, ssoInstance.Region);
-      console.log(`Found ${identityCenterUsers.length} Identity Center users`);
-      
-      if (identityCenterUsers.length === 0) {
-        console.log('No Identity Center users found, falling back to IAM users...');
+        // Get users from Identity Center
+        console.log('Getting Identity Center users...');
+        const identityCenterUsers = await this.getIdentityCenterUsers(ssoInstance.IdentityStoreId, ssoInstance.Region);
+        console.log(`Found ${identityCenterUsers.length} Identity Center users`);
+        
+        if (identityCenterUsers.length === 0) {
+          console.log('No Identity Center users found, falling back to IAM users...');
+          return await this.getOrganizationIAMUsers();
+        }
+        
+        // Just return users without processing account access (lazy loading)
+        const organizationUsers: OrganizationUser[] = identityCenterUsers.map(user => ({
+          user,
+          homeAccountId: currentAccount.accountId,
+          accountAccess: [] // Empty - will be loaded on demand
+        }));
+        
+        console.log(`Returning ${organizationUsers.length} organization users (lazy loading)`);
+        return organizationUsers;
+      })
+      .catch(async error => {
+        console.error('Error in getOrganizationUsers:', error);
+        
+        // If there's an error with Identity Center, fall back to IAM users
+        console.log('Error with Identity Center, falling back to IAM users...');
         return await this.getOrganizationIAMUsers();
-      }
-      
-      // Just return users without processing account access (lazy loading)
-      const organizationUsers: OrganizationUser[] = identityCenterUsers.map(user => ({
-        user,
-        homeAccountId: currentAccount.accountId,
-        accountAccess: [] // Empty - will be loaded on demand
-      }));
-      
-      console.log(`Returning ${organizationUsers.length} organization users (lazy loading)`);
-      return organizationUsers;
-    } catch (error) {
-      console.error('Error in getOrganizationUsers:', error);
-      
-      // If there's an error with Identity Center, fall back to IAM users
-      console.log('Error with Identity Center, falling back to IAM users...');
-      return await this.getOrganizationIAMUsers();
-    }
+      });
   }
 
   /**
@@ -409,107 +410,108 @@ export class AWSService {
     instanceArn: string,
     region?: string
   ): Promise<CrossAccountUserAccess> {
-    try {
-      const ssoAdminClient = region ? new SSOAdminClient({ region }) : this.ssoAdminClient;
-      
-      // First get all permission sets for this instance
-      const permissionSetsCommand = new ListPermissionSetsCommand({
-        InstanceArn: instanceArn
-      });
-      
-      const permissionSetsResponse = await ssoAdminClient.send(permissionSetsCommand);
-      const permissionSets = permissionSetsResponse.PermissionSets || [];
-      
-      const userAssignments: string[] = [];
-      
-      // Check each permission set for assignments to this user in this account
-      for (const permissionSetArn of permissionSets) {
-        try {
+    const ssoAdminClient = region ? new SSOAdminClient({ region }) : this.ssoAdminClient;
+    
+    // First get all permission sets for this instance
+    const permissionSetsCommand = new ListPermissionSetsCommand({
+      InstanceArn: instanceArn
+    });
+    
+    return ssoAdminClient.send(permissionSetsCommand)
+      .then(async permissionSetsResponse => {
+        const permissionSets = permissionSetsResponse.PermissionSets || [];
+        const userAssignments: string[] = [];
+        
+        // Check each permission set for assignments to this user in this account
+        for (const permissionSetArn of permissionSets) {
           const assignmentsCommand = new ListAccountAssignmentsCommand({
             InstanceArn: instanceArn,
             AccountId: accountId,
             PermissionSetArn: permissionSetArn
           });
           
-          const assignmentsResponse = await ssoAdminClient.send(assignmentsCommand);
-          const assignments = assignmentsResponse.AccountAssignments || [];
-          
-          // Check if any assignment is for this user
-          const hasUserAssignment = assignments.some(assignment => 
-            assignment.PrincipalType === 'USER' && assignment.PrincipalId === userId
-          );
-          
-          if (hasUserAssignment) {
-            userAssignments.push(permissionSetArn);
-          }
-        } catch (error) {
-          // Continue checking other permission sets if one fails
-          console.warn(`Error checking permission set ${permissionSetArn}:`, error);
+          await ssoAdminClient.send(assignmentsCommand)
+            .then(assignmentsResponse => {
+              const assignments = assignmentsResponse.AccountAssignments || [];
+              
+              // Check if any assignment is for this user
+              const hasUserAssignment = assignments.some(assignment => 
+                assignment.PrincipalType === 'USER' && assignment.PrincipalId === userId
+              );
+              
+              if (hasUserAssignment) {
+                userAssignments.push(permissionSetArn);
+              }
+            })
+            .catch(error => {
+              // Continue checking other permission sets if one fails
+              console.warn(`Error checking permission set ${permissionSetArn}:`, error);
+            });
         }
-      }
-      
-      return {
-        accountId,
-        accountName: '', // Will be set by the caller
-        hasAccess: userAssignments.length > 0,
-        accessType: 'SSO',
-        roles: userAssignments,
-        lastChecked: new Date()
-      };
-    } catch (error) {
-      console.warn(`Could not check Identity Center access for user ${userId} in account ${accountId}:`, error);
-      return {
-        accountId,
-        accountName: '', // Will be set by the caller
-        hasAccess: false,
-        accessType: 'SSO',
-        lastChecked: new Date()
-      };
-    }
+        
+        return {
+          accountId,
+          accountName: '', // Will be set by the caller
+          hasAccess: userAssignments.length > 0,
+          accessType: 'SSO' as const,
+          roles: userAssignments,
+          lastChecked: new Date()
+        };
+      })
+      .catch(error => {
+        console.warn(`Could not check Identity Center access for user ${userId} in account ${accountId}:`, error);
+        return {
+          accountId,
+          accountName: '', // Will be set by the caller
+          hasAccess: false,
+          accessType: 'SSO',
+          lastChecked: new Date()
+        };
+      });
   }
 
   /**
    * Get account access for a specific Identity Center user (lazy loading)
    */
   async getUserAccountAccess(userId: string, ssoRegion?: string): Promise<CrossAccountUserAccess[]> {
-    try {
-      console.log(`Getting account access for user: ${userId}`);
-      
-      // Get SSO instances
-      const ssoInstances = await this.getSSOInstances(ssoRegion);
-      
-      if (ssoInstances.length === 0) {
-        console.warn('No SSO instances found');
-        return [];
-      }
+    console.log(`Getting account access for user: ${userId}`);
+    
+    // Get SSO instances
+    return this.getSSOInstances(ssoRegion)
+      .then(async ssoInstances => {
+        if (ssoInstances.length === 0) {
+          console.warn('No SSO instances found');
+          return [];
+        }
 
-      // Use the first SSO instance
-      const ssoInstance = ssoInstances[0];
-      
-      // Get all organization accounts
-      const accounts = await this.listOrganizationAccounts();
-      console.log(`Checking access across ${accounts.length} accounts for user ${userId}`);
-      
-      const accountAccess: CrossAccountUserAccess[] = [];
-      
-      for (const account of accounts) {
-        // Check SSO assignments for each account
-        const access = await this.checkIdentityCenterUserInAccount(
-          userId, 
-          account.id, 
-          ssoInstance.InstanceArn,
-          ssoInstance.Region
-        );
-        access.accountName = account.name;
-        accountAccess.push(access);
-      }
-      
-      console.log(`Found ${accountAccess.filter(a => a.hasAccess).length} accessible accounts for user ${userId}`);
-      return accountAccess;
-    } catch (error) {
-      console.error(`Error getting account access for user ${userId}:`, error);
-      return [];
-    }
+        // Use the first SSO instance
+        const ssoInstance = ssoInstances[0];
+        
+        // Get all organization accounts
+        const accounts = await this.listOrganizationAccounts();
+        console.log(`Checking access across ${accounts.length} accounts for user ${userId}`);
+        
+        const accountAccess: CrossAccountUserAccess[] = [];
+        
+        for (const account of accounts) {
+          // Check SSO assignments for each account
+          const access = await this.checkIdentityCenterUserInAccount(
+            userId, 
+            account.id, 
+            ssoInstance.InstanceArn,
+            ssoInstance.Region
+          );
+          access.accountName = account.name;
+          accountAccess.push(access);
+        }
+        
+        console.log(`Found ${accountAccess.filter(a => a.hasAccess).length} accessible accounts for user ${userId}`);
+        return accountAccess;
+      })
+      .catch(error => {
+        console.error(`Error getting account access for user ${userId}:`, error);
+        return [];
+      });
   }
 
   /**
@@ -526,91 +528,91 @@ export class AWSService {
    * This is used when IAM Identity Center is not available
    */
   async getOrganizationIAMUsers(): Promise<OrganizationUser[]> {
-    try {
-      console.log('Getting IAM users across organization accounts...');
-      
-      // Get all organization accounts
-      const accounts = await this.listOrganizationAccounts();
-      console.log(`Found ${accounts.length} organization accounts`);
-      
-      const currentAccount = await this.getAccountInfo();
-      if (!currentAccount) {
-        console.error('Could not get current account info');
-        return [];
-      }
+    console.log('Getting IAM users across organization accounts...');
+    
+    // Get all organization accounts
+    return this.listOrganizationAccounts()
+      .then(async accounts => {
+        console.log(`Found ${accounts.length} organization accounts`);
+        
+        const currentAccount = await this.getAccountInfo();
+        if (!currentAccount) {
+          console.error('Could not get current account info');
+          return [];
+        }
 
-      // Collect unique users across all accounts
-      const userMap = new Map<string, { user: IdentityCenterUser; accountAccess: CrossAccountUserAccess[] }>();
-      
-      for (const account of accounts) {
-        try {
-          console.log(`Checking IAM users in account: ${account.name} (${account.id})`);
-          
-          // Get IAM client for this account
+        // Collect unique users across all accounts
+        const userMap = new Map<string, { user: IdentityCenterUser; accountAccess: CrossAccountUserAccess[] }>();
+        
+        for (const account of accounts) {
           const iamClient = await this.getIAMClientForAccount(account.id);
           if (!iamClient) {
             console.log(`Cannot access account ${account.id}, skipping...`);
             continue;
           }
 
+          console.log(`Checking IAM users in account: ${account.name} (${account.id})`);
+
           // List users in this account
           const listUsersCommand = new ListUsersCommand({});
-          const usersResponse = await iamClient.send(listUsersCommand);
-          const accountUsers = usersResponse.Users || [];
-          
-          console.log(`Found ${accountUsers.length} IAM users in account ${account.name}`);
+          await iamClient.send(listUsersCommand)
+            .then(usersResponse => {
+              const accountUsers = usersResponse.Users || [];
+              console.log(`Found ${accountUsers.length} IAM users in account ${account.name}`);
 
-          for (const iamUser of accountUsers) {
-            const userKey = iamUser.UserName || '';
-            
-            // Convert IAM user to IdentityCenterUser format for consistency
-            const identityCenterUser: IdentityCenterUser = {
-              UserId: iamUser.UserId || '',
-              UserName: iamUser.UserName || '',
-              Name: {
-                Formatted: iamUser.UserName || ''
-              },
-              DisplayName: iamUser.UserName || '',
-              Emails: [], // IAM users don't have email in the same format
-              Active: true,
-              IdentityStoreId: account.id // Use account ID as identifier
-            };
+              for (const iamUser of accountUsers) {
+                const userKey = iamUser.UserName || '';
+                
+                // Convert IAM user to IdentityCenterUser format for consistency
+                const identityCenterUser: IdentityCenterUser = {
+                  UserId: iamUser.UserId || '',
+                  UserName: iamUser.UserName || '',
+                  Name: {
+                    Formatted: iamUser.UserName || ''
+                  },
+                  DisplayName: iamUser.UserName || '',
+                  Emails: [], // IAM users don't have email in the same format
+                  Active: true,
+                  IdentityStoreId: account.id // Use account ID as identifier
+                };
 
-            if (!userMap.has(userKey)) {
-              userMap.set(userKey, {
-                user: identityCenterUser,
-                accountAccess: []
-              });
-            }
+                if (!userMap.has(userKey)) {
+                  userMap.set(userKey, {
+                    user: identityCenterUser,
+                    accountAccess: []
+                  });
+                }
 
-            // Add access for this account
-            const userEntry = userMap.get(userKey)!;
-            userEntry.accountAccess.push({
-              accountId: account.id,
-              accountName: account.name,
-              hasAccess: true,
-              accessType: 'IAM',
-              lastChecked: new Date()
+                // Add access for this account
+                const userEntry = userMap.get(userKey)!;
+                userEntry.accountAccess.push({
+                  accountId: account.id,
+                  accountName: account.name,
+                  hasAccess: true,
+                  accessType: 'IAM' as const,
+                  lastChecked: new Date()
+                });
+              }
+            })
+            .catch(error => {
+              console.warn(`Error checking account ${account.id}:`, error);
+              // Continue with other accounts
             });
-          }
-        } catch (error) {
-          console.warn(`Error checking account ${account.id}:`, error);
-          // Continue with other accounts
         }
-      }
 
-      // Convert map to array
-      const organizationUsers: OrganizationUser[] = Array.from(userMap.values()).map(entry => ({
-        user: entry.user,
-        homeAccountId: currentAccount.accountId,
-        accountAccess: entry.accountAccess
-      }));
+        // Convert map to array
+        const organizationUsers: OrganizationUser[] = Array.from(userMap.values()).map(entry => ({
+          user: entry.user,
+          homeAccountId: currentAccount.accountId,
+          accountAccess: entry.accountAccess
+        }));
 
-      console.log(`Found ${organizationUsers.length} unique IAM users across organization`);
-      return organizationUsers;
-    } catch (error) {
-      console.error('Error in getOrganizationIAMUsers:', error);
-      return [];
-    }
+        console.log(`Found ${organizationUsers.length} unique IAM users across organization`);
+        return organizationUsers;
+      })
+      .catch(error => {
+        console.error('Error in getOrganizationIAMUsers:', error);
+        return [];
+      });
   }
 }
