@@ -6,7 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountInfo } from '@/types/aws';
-import { Building2, ArrowRight, Zap } from 'lucide-react';
+import { Building2, ArrowRight, Zap, Shield } from 'lucide-react';
 
 export default function Dashboard() {
   const { awsRegion } = useRegion();
@@ -35,6 +35,14 @@ export default function Dashboard() {
       href: '/organization',
       color: 'bg-green-500',
       hoverColor: 'hover:bg-green-600'
+    },
+    {
+      title: 'Permission Sets',
+      description: 'Browse and manage AWS SSO permission sets. View detailed policies, analyze permissions, and understand access patterns.',
+      icon: Shield,
+      href: '/permission-sets',
+      color: 'bg-blue-500',
+      hoverColor: 'hover:bg-blue-600'
     }
   ];
 

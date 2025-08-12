@@ -712,6 +712,53 @@ export class AWSService {
   }
 
   /**
+   * Get all permission sets from an SSO instance
+   */
+  async getPermissionSets(instanceArn: string): Promise<Array<{ arn: string; name: string; description?: string }>> {
+    const ssoAdminClient = new SSOAdminClient({ region: this.region });
+    
+    // Get all permission sets with pagination
+    const permissionSetArns: string[] = [];
+    let nextToken: string | undefined;
+    
+    do {
+      const permissionSetsCommand = new ListPermissionSetsCommand({
+        InstanceArn: instanceArn,
+        NextToken: nextToken
+      });
+      
+      const permissionSetsResponse = await ssoAdminClient.send(permissionSetsCommand);
+      permissionSetArns.push(...(permissionSetsResponse.PermissionSets || []));
+      nextToken = permissionSetsResponse.NextToken;
+    } while (nextToken);
+    
+    console.log(`Found ${permissionSetArns.length} permission sets`);
+    
+    // Get details for each permission set
+    const permissionSetsWithDetails = await Promise.allSettled(
+      permissionSetArns.map(async (arn) => {
+        const describeCommand = new DescribePermissionSetCommand({
+          InstanceArn: instanceArn,
+          PermissionSetArn: arn
+        });
+        
+        const response = await ssoAdminClient.send(describeCommand);
+        return {
+          arn,
+          name: response.PermissionSet?.Name || '',
+          description: response.PermissionSet?.Description
+        };
+      })
+    );
+    
+    // Filter successful results and sort by name
+    return permissionSetsWithDetails
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => (result as PromiseFulfilledResult<{ arn: string; name: string; description?: string }>).value)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
    * Parse policy document to extract detailed resource access information
    */
   async parseDetailedResourceAccess(policyDocument?: string, managedPolicyArns: string[] = []): Promise<DetailedResourceAccess[]> {
