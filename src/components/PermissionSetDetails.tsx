@@ -104,6 +104,22 @@ export default function PermissionSetDetails({
     };
   };
 
+  const getPermissionSetServices = (): string[] => {
+    const services = new Set<string>();
+    
+    // Extract from inline policy if it exists
+    if (permissionSet.inlinePolicyDocument) {
+      const parsedPolicy = parseInlinePolicy(permissionSet.inlinePolicyDocument);
+      if (parsedPolicy) {
+        parsedPolicy.statements.forEach(statement => {
+          statement.services.forEach(service => services.add(service));
+        });
+      }
+    }
+    
+    return Array.from(services).sort();
+  };
+
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
     if (newExpanded.has(section)) {
@@ -145,7 +161,7 @@ export default function PermissionSetDetails({
               <p className="text-gray-600 mb-4">{permissionSet.description}</p>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div className="bg-blue-50 rounded-lg p-3">
                 <div className="flex items-center">
                   <Clock className="w-5 h-5 text-blue-600 mr-2" />
@@ -167,6 +183,21 @@ export default function PermissionSetDetails({
                       {(permissionSet.managedPolicies?.length || 0) + 
                        (permissionSet.customerManagedPolicies?.length || 0) +
                        (permissionSet.inlinePolicyDocument ? 1 : 0)} total
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-green-50 rounded-lg p-3">
+                <div className="flex items-center">
+                  <Server className="w-5 h-5 text-green-600 mr-2" />
+                  <div>
+                    <div className="text-sm font-medium text-green-900">Services</div>
+                    <div className="text-xs text-green-700">
+                      {(() => {
+                        const services = getPermissionSetServices();
+                        return services.length > 0 ? `${services.length} detected` : 'None detected';
+                      })()}
                     </div>
                   </div>
                 </div>
