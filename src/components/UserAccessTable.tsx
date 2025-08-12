@@ -339,12 +339,18 @@ export default function UserAccessTable({
 
   // Extract filter options from data
   const filterOptions = useMemo(() => {
-    const accountOptions = new Set<number>();
+    const accountOptions = new Set<string>();
     const permissionSetOptions = new Set<string>();
     const serviceOptions = new Set<string>();
     
     tableData.forEach(row => {
-      accountOptions.add(row.accessibleAccounts);
+      // Extract account names
+      row.accountAccess.forEach(access => {
+        if (access.hasAccess) {
+          const accountName = access.accountName || access.accountId;
+          accountOptions.add(accountName);
+        }
+      });
       
       // Extract permission sets
       row.accountAccess.forEach(access => {
@@ -371,7 +377,7 @@ export default function UserAccessTable({
     });
     
     return {
-      accounts: Array.from(accountOptions).sort((a, b) => b - a),
+      accounts: Array.from(accountOptions).sort(),
       permissionSets: Array.from(permissionSetOptions).sort(),
       services: Array.from(serviceOptions).sort()
     };
@@ -394,9 +400,10 @@ export default function UserAccessTable({
     
     if (filters.accounts.length > 0) {
       filtered = filtered.filter(row => 
-        filters.accounts.some(accountFilter => {
-          const accountCount = parseInt(accountFilter);
-          return row.accessibleAccounts === accountCount;
+        row.accountAccess.some(access => {
+          if (!access.hasAccess) return false;
+          const accountName = access.accountName || access.accountId;
+          return filters.accounts.includes(accountName);
         })
       );
     }
@@ -619,7 +626,11 @@ export default function UserAccessTable({
                       {isNumeric && (
                         <span className="text-gray-400 ml-1">
                           ({tableData.filter(row => 
-                            column === 'accounts' ? row.accessibleAccounts === option : true
+                            column === 'accounts' 
+                              ? row.accountAccess.some(access => 
+                                  access.hasAccess && (access.accountName || access.accountId) === option
+                                )
+                              : true
                           ).length})
                         </span>
                       )}
@@ -866,8 +877,7 @@ export default function UserAccessTable({
                 <FilterDropdown 
                   column="accounts" 
                   options={filterOptions.accounts}
-                  placeholder="account counts"
-                  isNumeric={true}
+                  placeholder="account names"
                 />
               </th>
               <th 
