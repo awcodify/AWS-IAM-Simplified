@@ -19,12 +19,15 @@ import {
   ListInstancesCommand,
   ListAccountAssignmentsCommand,
   ListAccountAssignmentsForPrincipalCommand,
-  ListPermissionSetsCommand
+  ListPermissionSetsCommand,
+  DescribePermissionSetCommand,
+  ListManagedPoliciesInPermissionSetCommand,
+  GetInlinePolicyForPermissionSetCommand,
+  ListCustomerManagedPolicyReferencesInPermissionSetCommand
 } from '@aws-sdk/client-sso-admin';
 import {
   IdentitystoreClient,
-  ListUsersCommand as ListIdentityStoreUsersCommand,
-  GetUserIdCommand
+  ListUsersCommand as ListIdentityStoreUsersCommand
 } from '@aws-sdk/client-identitystore';
 import type { 
   UserPermissions, 
@@ -34,7 +37,9 @@ import type {
   SSOInstance,
   OrganizationAccount, 
   CrossAccountUserAccess, 
-  OrganizationUser 
+  OrganizationUser,
+  PermissionSetDetails,
+  DetailedResourceAccess
 } from '@/types/aws';
 
 export class AWSService {
@@ -43,6 +48,7 @@ export class AWSService {
   private organizationsClient: OrganizationsClient;
   private ssoAdminClient: SSOAdminClient;
   private identityStoreClient: IdentitystoreClient;
+  private region: string;
 
   constructor(region = 'us-east-1') {
     // Use the default credential provider chain which handles:
@@ -51,6 +57,7 @@ export class AWSService {
     // 3. Instance metadata (for EC2)
     // 4. Container credentials (for ECS/Fargate)
     
+    this.region = region;
     console.log(`Using AWS region: ${region}`);
     
     this.iamClient = new IAMClient({ 
@@ -492,7 +499,6 @@ export class AWSService {
         
         // Get all organization accounts to map account IDs to names
         const accounts = await this.listOrganizationAccounts();
-        const accountMap = new Map(accounts.map(acc => [acc.id, acc.name]));
         console.log(`Retrieved ${accounts.length} organization accounts`);
         
         // Result map: userId -> account access list
@@ -564,9 +570,171 @@ export class AWSService {
   }
 
   /**
-   * Get account access for a specific Identity Center user using ListAccountAssignmentsForPrincipal
-   * This is much more efficient than checking each account individually
+   * Get detailed information about a permission set including policies and permissions
    */
+  async getPermissionSetDetails(instanceArn: string, permissionSetArn: string, ssoRegion?: string): Promise<PermissionSetDetails> {
+    const ssoAdminClient = new SSOAdminClient({ region: ssoRegion || this.region });
+    
+    // Get basic permission set information
+    const describeCommand = new DescribePermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    
+    const permissionSetResponse = await ssoAdminClient.send(describeCommand);
+    const permissionSet = permissionSetResponse.PermissionSet;
+    
+    if (!permissionSet) {
+      throw new Error('Permission set not found');
+    }
+
+    const details: PermissionSetDetails = {
+      name: permissionSet.Name || '',
+      arn: permissionSetArn,
+      description: permissionSet.Description,
+      sessionDuration: permissionSet.SessionDuration,
+      managedPolicies: [],
+      customerManagedPolicies: []
+    };
+
+    // Get AWS managed policies
+    const managedPoliciesCommand = new ListManagedPoliciesInPermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    
+    const managedPoliciesResponse = await ssoAdminClient.send(managedPoliciesCommand);
+    details.managedPolicies = managedPoliciesResponse.AttachedManagedPolicies?.map(p => p.Arn || '') || [];
+
+    // Get customer managed policies
+    const customerPoliciesCommand = new ListCustomerManagedPolicyReferencesInPermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    
+    const customerPoliciesResponse = await ssoAdminClient.send(customerPoliciesCommand);
+    details.customerManagedPolicies = customerPoliciesResponse.CustomerManagedPolicyReferences?.map(p => ({
+      name: p.Name || '',
+      path: p.Path || '/'
+    })) || [];
+
+    // Get inline policy
+    const inlinePolicyCommand = new GetInlinePolicyForPermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    
+    try {
+      const inlinePolicyResponse = await ssoAdminClient.send(inlinePolicyCommand);
+      details.inlinePolicyDocument = inlinePolicyResponse.InlinePolicy;
+        } catch (error) {
+          // Inline policy might not exist, which is fine
+          console.log('No inline policy found for permission set', error);
+        }    return details;
+  }
+
+  /**
+   * Parse policy document to extract detailed resource access information
+   */
+  async parseDetailedResourceAccess(policyDocument?: string, managedPolicyArns: string[] = []): Promise<DetailedResourceAccess[]> {
+    const accessDetails: DetailedResourceAccess[] = [];
+
+    // Parse inline policy if provided
+    if (policyDocument) {
+      try {
+        const policy = JSON.parse(policyDocument);
+        if (policy.Statement) {
+          const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
+          
+          statements.forEach((statement: {
+            Effect?: string;
+            Action?: string | string[];
+            Resource?: string | string[];
+            Condition?: Record<string, unknown>;
+          }) => {
+            if (statement.Effect && statement.Action && statement.Resource) {
+              const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+              const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
+              
+              // Group by service
+              const serviceGroups = new Map<string, { resources: Set<string>, actions: Set<string> }>();
+              
+              actions.forEach((action: string) => {
+                const service = action.split(':')[0] || 'unknown';
+                if (!serviceGroups.has(service)) {
+                  serviceGroups.set(service, { resources: new Set(), actions: new Set() });
+                }
+                serviceGroups.get(service)!.actions.add(action);
+              });
+              
+              resources.forEach((resource: string) => {
+                // Try to determine service from resource ARN
+                let service = 'unknown';
+                if (resource.startsWith('arn:aws:')) {
+                  service = resource.split(':')[2] || 'unknown';
+                } else if (resource === '*') {
+                  // Add to all services
+                  serviceGroups.forEach((group) => {
+                    group.resources.add(resource);
+                  });
+                  return;
+                }
+                
+                if (serviceGroups.has(service)) {
+                  serviceGroups.get(service)!.resources.add(resource);
+                } else {
+                  // Create new service group for this resource
+                  serviceGroups.set(service, { 
+                    resources: new Set([resource]), 
+                    actions: new Set(['*']) 
+                  });
+                }
+              });
+              
+              serviceGroups.forEach((group, service) => {
+                accessDetails.push({
+                  service,
+                  resources: Array.from(group.resources),
+                  actions: Array.from(group.actions),
+                  effect: (statement.Effect as 'Allow' | 'Deny') || 'Allow',
+                  condition: statement.Condition
+                });
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing inline policy document:', error);
+      }
+    }
+
+    // Parse managed policies (this would require additional API calls to get policy versions)
+    // For now, just list the managed policies as high-level access
+    managedPolicyArns.forEach(arn => {
+      const policyName = arn.split('/').pop() || arn;
+      let service = 'multiple';
+      
+      // Try to infer service from common AWS managed policy patterns
+      if (policyName.includes('S3')) service = 's3';
+      else if (policyName.includes('EC2')) service = 'ec2';
+      else if (policyName.includes('Lambda')) service = 'lambda';
+      else if (policyName.includes('DynamoDB')) service = 'dynamodb';
+      else if (policyName.includes('RDS')) service = 'rds';
+      else if (policyName.includes('IAM')) service = 'iam';
+      else if (policyName.includes('CloudWatch')) service = 'cloudwatch';
+      else if (policyName.includes('Admin')) service = 'multiple';
+      
+      accessDetails.push({
+        service,
+        resources: ['*'],
+        actions: [policyName],
+        effect: 'Allow'
+      });
+    });
+
+    return accessDetails;
+  }
+
   async getUserAccountAccess(userId: string, ssoRegion?: string): Promise<CrossAccountUserAccess[]> {
     console.log(`Getting account access for user: ${userId}`);
     
@@ -595,7 +763,7 @@ export class AWSService {
         });
         
         return ssoAdminClient.send(assignmentsCommand)
-          .then(response => {
+          .then(async response => {
             const assignments = response.AccountAssignments || [];
             console.log(`Found ${assignments.length} account assignments for user ${userId}`);
             
@@ -614,17 +782,43 @@ export class AWSService {
             // Create result for all accounts (including those without access)
             const accountAccess: CrossAccountUserAccess[] = [];
             
-            // Add accounts with access
-            accountAssignments.forEach((roles, accountId) => {
+            // Add accounts with access and fetch detailed permission set information
+            for (const [accountId, roles] of accountAssignments) {
+              const permissionSets: PermissionSetDetails[] = [];
+              let combinedDetailedAccess: DetailedResourceAccess[] = [];
+              
+              // Fetch detailed information for each permission set
+              for (const permissionSetArn of roles) {
+                try {
+                  const permissionSetDetails = await this.getPermissionSetDetails(
+                    ssoInstance.InstanceArn, 
+                    permissionSetArn, 
+                    ssoInstance.Region
+                  );
+                  permissionSets.push(permissionSetDetails);
+                  
+                  // Parse detailed access from this permission set
+                  const detailedAccess = await this.parseDetailedResourceAccess(
+                    permissionSetDetails.inlinePolicyDocument,
+                    permissionSetDetails.managedPolicies
+                  );
+                  combinedDetailedAccess = combinedDetailedAccess.concat(detailedAccess);
+                } catch (error) {
+                  console.error(`Error fetching permission set details for ${permissionSetArn}:`, error);
+                }
+              }
+              
               accountAccess.push({
                 accountId,
                 accountName: accountMap.get(accountId) || accountId,
                 hasAccess: true,
                 accessType: 'SSO' as const,
                 roles,
+                permissionSets,
+                detailedAccess: combinedDetailedAccess,
                 lastChecked: new Date()
               });
-            });
+            }
             
             // Add accounts without access (optional - you might want to only show accessible accounts)
             accounts.forEach(account => {

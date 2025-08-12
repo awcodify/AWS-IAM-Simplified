@@ -3,7 +3,8 @@
 import { Building2, Users, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
-import UserListContainer from '@/components/UserListContainer';
+import UserAccessTable from '@/components/UserAccessTable';
+import AccessSummary from '@/components/AccessSummary';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useRegion } from '@/contexts/RegionContext';
@@ -261,15 +262,15 @@ export default function OrganizationPage() {
               {accounts.length} Accounts
             </div>
             <div className="text-xs text-gray-400">
-              💡 Use "Load All Access" for efficient bulk loading
+              💡 Use &quot;Load All Access&quot; for efficient bulk loading
             </div>
           </div>
           
           {users.length > 0 && users[0]?.user?.IdentityStoreId && !users[0].user.IdentityStoreId.startsWith('d-') && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
+              <div className="text-sm text-blue-800">
                 <strong>Note:</strong> IAM Identity Center is not available, showing IAM users across organization accounts instead.
-              </p>
+              </div>
             </div>
           )}
         </PageHeader>
@@ -282,9 +283,16 @@ export default function OrganizationPage() {
           />
         )}
 
-        {/* Users List */}
-        <UserListContainer
-          variant="organization"
+        {/* Access Summary */}
+        {users.length > 0 && accounts.length > 0 && (
+          <AccessSummary 
+            users={users} 
+            totalAccounts={accounts.length} 
+          />
+        )}
+
+        {/* User Access Table */}
+        <UserAccessTable
           users={users}
           onUserClick={handleUserClick}
           selectedUser={selectedUser || undefined}

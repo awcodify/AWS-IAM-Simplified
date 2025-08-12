@@ -10,12 +10,13 @@ interface UserAccountAccessResponse {
 
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ): Promise<NextResponse<UserAccountAccessResponse>> {
   const { searchParams } = new URL(request.url);
   const ssoRegion = searchParams.get('ssoRegion') || undefined;
   const region = searchParams.get('region') || 'us-east-1';
-  const userId = params.userId;
+  const resolvedParams = await params;
+  const userId = resolvedParams.userId;
 
   if (!userId) {
     return NextResponse.json({

@@ -54,7 +54,6 @@ export default function Dashboard() {
           title="AWS IAM Simplified"
           description="Simplify AWS IAM management and understand what resources your users can access. Choose a view below to get started with analyzing user permissions and access patterns."
           icon={<Zap className="h-12 w-12 text-blue-600" />}
-          accountInfo={accountInfo}
         />
 
         {/* Dashboard Cards */}

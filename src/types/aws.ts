@@ -80,12 +80,35 @@ export interface OrganizationAccount {
   arn: string;
 }
 
+export interface PermissionSetDetails {
+  name: string;
+  arn: string;
+  description?: string;
+  sessionDuration?: string;
+  managedPolicies?: string[];
+  inlinePolicyDocument?: string;
+  customerManagedPolicies?: {
+    name: string;
+    path: string;
+  }[];
+}
+
+export interface DetailedResourceAccess {
+  service: string;
+  resources: string[];
+  actions: string[];
+  effect: 'Allow' | 'Deny';
+  condition?: Record<string, unknown>;
+}
+
 export interface CrossAccountUserAccess {
   accountId: string;
   accountName: string;
   hasAccess: boolean;
   accessType?: 'IAM' | 'SSO' | 'AssumedRole';
   roles?: string[];
+  permissionSets?: PermissionSetDetails[];
+  detailedAccess?: DetailedResourceAccess[];
   lastChecked: Date;
 }
 

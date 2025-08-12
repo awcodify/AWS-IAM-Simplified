@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AWSService } from '@/lib/aws-service';
+import type { CrossAccountUserAccess } from '@/types/aws';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     const userAccessMap = await awsService.getBulkUserAccountAccess(userIds, ssoRegion);
     
     // Convert Map to object for JSON serialization
-    const result: Record<string, any[]> = {};
+    const result: Record<string, CrossAccountUserAccess[]> = {};
     userAccessMap.forEach((access, userId) => {
       result[userId] = access;
     });

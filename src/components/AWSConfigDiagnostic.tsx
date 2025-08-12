@@ -66,9 +66,10 @@ export default function AWSConfigDiagnostic() {
         }
         setDiagnostics([...checks]);
       })
-      .catch(error => {
+      .catch(() => {
         checks[0] = { check: 'AWS Connection', status: 'error', message: 'Failed to connect to AWS' };
         checks[1] = { check: 'Account Info', status: 'error', message: 'Cannot get account info' };
+        setDiagnostics([...checks]);
         setDiagnostics([...checks]);
       });
 
@@ -105,7 +106,7 @@ export default function AWSConfigDiagnostic() {
         }
         setDiagnostics([...checks]);
       })
-      .catch(error => {
+      .catch(() => {
         checks[2] = { 
           check: 'Organization Access', 
           status: 'error', 
@@ -148,7 +149,7 @@ export default function AWSConfigDiagnostic() {
         setDiagnostics([...checks]);
         setIsRunning(false);
       })
-      .catch(error => {
+      .catch(() => {
         checks[3] = { 
           check: 'IAM Identity Center', 
           status: 'error', 
@@ -258,7 +259,7 @@ export default function AWSConfigDiagnostic() {
 
       {diagnostics.length === 0 && (
         <div className="text-gray-500 text-center py-8">
-          Click "Run Diagnostics" to check your AWS configuration
+          Click &quot;Run Diagnostics&quot; to check your AWS configuration
         </div>
       )}
     </div>

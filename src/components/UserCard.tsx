@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Calendar, Hash, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Users, Calendar, Hash, CheckCircle, XCircle, Loader2, Shield, Key, Server, Database } from 'lucide-react';
 import type { IAMUser, OrganizationUser, CrossAccountUserAccess } from '@/types/aws';
 
 interface BaseUserCardProps {
@@ -29,7 +29,7 @@ interface OrganizationUserCardProps extends BaseUserCardProps {
 type UserCardProps = SingleAccountUserCardProps | OrganizationUserCardProps;
 
 export default function UserCard(props: UserCardProps) {
-  const { onClick, isSelected, isLoading, className, variant } = props;
+  const { onClick, isSelected, className, variant } = props;
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -47,6 +47,21 @@ export default function UserCard(props: UserCardProps) {
     );
   };
 
+  const getServiceIcon = (service: string) => {
+    switch (service.toLowerCase()) {
+      case 's3':
+        return <Database className="w-3 h-3" />;
+      case 'ec2':
+        return <Server className="w-3 h-3" />;
+      case 'iam':
+        return <Key className="w-3 h-3" />;
+      case 'lambda':
+        return <Server className="w-3 h-3" />;
+      default:
+        return <Shield className="w-3 h-3" />;
+    }
+  };
+
   const getAccessTypeColor = (accessType?: string) => {
     switch (accessType) {
       case 'IAM':
@@ -61,7 +76,7 @@ export default function UserCard(props: UserCardProps) {
   };
 
   if (variant === 'single-account') {
-    const { user, statusText } = props;
+    const { user } = props;
     
     return (
       <div
@@ -135,15 +150,72 @@ export default function UserCard(props: UserCardProps) {
             <p className="text-xs text-gray-400">
               Home Account: {orgUser.homeAccountId}
             </p>
+            {/* Quick Service Preview */}
+            {accountAccess.length > 0 && !isExpanded && (
+              <div className="mt-1">
+                {(() => {
+                  const accessibleAccounts = accountAccess.filter(a => a.hasAccess);
+                  const uniqueServices = new Set(
+                    accessibleAccounts.flatMap(acc => 
+                      acc.detailedAccess?.map(detail => detail.service) || []
+                    )
+                  );
+                  const serviceArray = Array.from(uniqueServices).slice(0, 4);
+                  
+                  if (serviceArray.length > 0) {
+                    return (
+                      <div className="flex items-center space-x-1">
+                        {serviceArray.map((service, index) => (
+                          <div key={index} className="flex items-center bg-blue-50 px-1 py-0.5 rounded text-xs text-blue-700">
+                            {getServiceIcon(service)}
+                            <span className="ml-1 capitalize">{service}</span>
+                          </div>
+                        ))}
+                        {uniqueServices.size > 4 && (
+                          <span className="text-xs text-gray-400">+{uniqueServices.size - 4}</span>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-2">
           {loadingAccess ? (
             <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
           ) : accountAccess.length > 0 ? (
-            <span className="text-sm text-gray-500">
-              {accountAccess.filter(a => a.hasAccess).length} / {accountAccess.length} accounts
-            </span>
+            <div className="text-right">
+              <div className="text-sm text-gray-500">
+                {accountAccess.filter(a => a.hasAccess).length} / {accountAccess.length} accounts
+              </div>
+              {accountAccess.length > 0 && (
+                <div className="text-xs text-gray-400">
+                  {(() => {
+                    const accessibleAccounts = accountAccess.filter(a => a.hasAccess);
+                    const totalPermissionSets = accessibleAccounts.reduce((sum, acc) => 
+                      sum + (acc.permissionSets?.length || acc.roles?.length || 0), 0
+                    );
+                    const uniqueServices = new Set(
+                      accessibleAccounts.flatMap(acc => 
+                        acc.detailedAccess?.map(detail => detail.service) || []
+                      )
+                    );
+                    
+                    if (totalPermissionSets > 0 && uniqueServices.size > 0) {
+                      return `${totalPermissionSets} permission sets • ${uniqueServices.size} services`;
+                    } else if (totalPermissionSets > 0) {
+                      return `${totalPermissionSets} permission sets`;
+                    } else if (accessibleAccounts.length > 0) {
+                      return 'Access configured';
+                    }
+                    return '';
+                  })()}
+                </div>
+              )}
+            </div>
           ) : (
             <span className="text-sm text-gray-400">
               {statusText || 'Click to load access info'}
@@ -170,40 +242,175 @@ export default function UserCard(props: UserCardProps) {
           ) : accountAccess.length > 0 ? (
             <>
               <h4 className="text-sm font-medium text-gray-900 mb-3">Account Access</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="space-y-4">
                 {accountAccess.map((access) => (
                   <div 
                     key={access.accountId}
-                    className="border rounded-lg p-3 bg-gray-50"
+                    className="border rounded-lg bg-white shadow-sm"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900">
-                        {access.accountName || access.accountId}
-                      </span>
-                      {getAccessStatusIcon(access.hasAccess)}
-                    </div>
-                    <div className="text-xs text-gray-500 mb-2">
-                      ID: {access.accountId}
-                    </div>
-                    {access.hasAccess && access.accessType && (
-                      <div className="mb-2">
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${getAccessTypeColor(access.accessType)}`}>
-                          {access.accessType}
+                    {/* Account Header */}
+                    <div className="p-4 border-b border-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-900">
+                          {access.accountName || access.accountId}
                         </span>
+                        {getAccessStatusIcon(access.hasAccess)}
                       </div>
-                    )}
-                    {access.hasAccess && access.roles && access.roles.length > 0 && (
-                      <div className="mb-2">
-                        <div className="text-xs text-gray-600 mb-1">Permission Sets:</div>
-                        {access.roles.map((role: string, index: number) => (
-                          <div key={index} className="text-xs text-blue-600 truncate">
-                            {role.split('/').pop() || role}
+                      <div className="text-xs text-gray-500 mb-2">
+                        ID: {access.accountId}
+                      </div>
+                      {access.hasAccess && access.accessType && (
+                        <div className="mb-2">
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${getAccessTypeColor(access.accessType)}`}>
+                            {access.accessType}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Detailed Permission Information */}
+                    {access.hasAccess && (
+                      <div className="p-4">
+                        {/* Permission Sets */}
+                        {access.permissionSets && access.permissionSets.length > 0 && (
+                          <div className="mb-4">
+                            <h5 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Permission Sets ({access.permissionSets.length})
+                            </h5>
+                            <div className="space-y-2">
+                              {access.permissionSets.map((permSet, index) => (
+                                <div key={index} className="bg-blue-50 rounded p-2">
+                                  <div className="text-xs font-medium text-blue-900 mb-1">
+                                    {permSet.name}
+                                  </div>
+                                  {permSet.description && (
+                                    <div className="text-xs text-blue-700 mb-1">
+                                      {permSet.description}
+                                    </div>
+                                  )}
+                                  {permSet.sessionDuration && (
+                                    <div className="text-xs text-blue-600">
+                                      Session: {permSet.sessionDuration}
+                                    </div>
+                                  )}
+                                  {permSet.managedPolicies && permSet.managedPolicies.length > 0 && (
+                                    <div className="mt-1">
+                                      <div className="text-xs text-blue-600 mb-1">AWS Managed Policies:</div>
+                                      {permSet.managedPolicies.map((policy, pIndex) => (
+                                        <div key={pIndex} className="text-xs text-blue-800 truncate">
+                                          • {policy.split('/').pop() || policy}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {permSet.customerManagedPolicies && permSet.customerManagedPolicies.length > 0 && (
+                                    <div className="mt-1">
+                                      <div className="text-xs text-blue-600 mb-1">Customer Managed Policies:</div>
+                                      {permSet.customerManagedPolicies.map((policy, pIndex) => (
+                                        <div key={pIndex} className="text-xs text-blue-800">
+                                          • {policy.name}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        ))}
+                        )}
+
+                        {/* Detailed Resource Access */}
+                        {access.detailedAccess && access.detailedAccess.length > 0 && (
+                          <div className="mb-4">
+                            <h5 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
+                              <Key className="w-3 h-3 mr-1" />
+                              Service Permissions
+                            </h5>
+                            <div className="space-y-2">
+                              {access.detailedAccess.map((detail, index) => (
+                                <div key={index} className="bg-gray-50 rounded p-2">
+                                  <div className="flex items-center mb-1">
+                                    {getServiceIcon(detail.service)}
+                                    <span className="text-xs font-medium text-gray-800 ml-1 capitalize">
+                                      {detail.service}
+                                    </span>
+                                    <span className={`ml-2 text-xs px-1 rounded ${
+                                      detail.effect === 'Allow' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {detail.effect}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Actions */}
+                                  <div className="mb-1">
+                                    <div className="text-xs text-gray-600">Actions:</div>
+                                    <div className="text-xs text-gray-800 max-h-16 overflow-y-auto">
+                                      {detail.actions.length > 3 ? (
+                                        <>
+                                          {detail.actions.slice(0, 3).map((action, aIndex) => (
+                                            <div key={aIndex}>• {action}</div>
+                                          ))}
+                                          <div className="text-gray-500">... +{detail.actions.length - 3} more</div>
+                                        </>
+                                      ) : (
+                                        detail.actions.map((action, aIndex) => (
+                                          <div key={aIndex}>• {action}</div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Resources */}
+                                  <div className="mb-1">
+                                    <div className="text-xs text-gray-600">Resources:</div>
+                                    <div className="text-xs text-gray-800 max-h-16 overflow-y-auto">
+                                      {detail.resources.length > 2 ? (
+                                        <>
+                                          {detail.resources.slice(0, 2).map((resource, rIndex) => (
+                                            <div key={rIndex} className="truncate">• {resource}</div>
+                                          ))}
+                                          <div className="text-gray-500">... +{detail.resources.length - 2} more</div>
+                                        </>
+                                      ) : (
+                                        detail.resources.map((resource, rIndex) => (
+                                          <div key={rIndex} className="truncate">• {resource}</div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Conditions */}
+                                  {detail.condition && (
+                                    <div className="text-xs text-gray-600">
+                                      Conditions: {JSON.stringify(detail.condition, null, 2).length > 50 ? 'Complex conditions applied' : JSON.stringify(detail.condition)}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Legacy Permission Sets Display (fallback) */}
+                        {access.roles && access.roles.length > 0 && (!access.permissionSets || access.permissionSets.length === 0) && (
+                          <div className="mb-2">
+                            <div className="text-xs text-gray-600 mb-1">Permission Sets:</div>
+                            {access.roles.map((role: string, index: number) => (
+                              <div key={index} className="text-xs text-blue-600 truncate">
+                                {role.split('/').pop() || role}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
-                    <div className="text-xs text-gray-400 mt-2">
-                      Checked: {new Date(access.lastChecked).toLocaleString()}
+
+                    {/* Footer */}
+                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                      <div className="text-xs text-gray-400">
+                        Checked: {new Date(access.lastChecked).toLocaleString()}
+                      </div>
                     </div>
                   </div>
                 ))}
