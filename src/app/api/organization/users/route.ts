@@ -6,6 +6,9 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
   const { searchParams } = new URL(request.url);
   const ssoRegion = searchParams.get('ssoRegion') || undefined;
   const region = searchParams.get('region') || 'us-east-1';
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '10');
+  const search = searchParams.get('search') || '';
   
   const awsService = new AWSService(region);
   
@@ -31,8 +34,33 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
     }, { status: 500 });
   }
 
+  // Apply search filter if provided
+  let filteredUsers = organizationUsers;
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filteredUsers = organizationUsers.filter(user => 
+      user.user.UserName.toLowerCase().includes(searchLower) ||
+      (user.user.DisplayName && user.user.DisplayName.toLowerCase().includes(searchLower)) ||
+      user.user.Emails.some(email => email.Value.toLowerCase().includes(searchLower))
+    );
+  }
+
+  // Calculate pagination
+  const totalUsers = filteredUsers.length;
+  const totalPages = Math.ceil(totalUsers / limit);
+  const offset = (page - 1) * limit;
+  const paginatedUsers = filteredUsers.slice(offset, offset + limit);
+
   return NextResponse.json({
     success: true,
-    data: organizationUsers
+    data: paginatedUsers,
+    pagination: {
+      currentPage: page,
+      totalPages,
+      totalUsers,
+      limit,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1
+    }
   });
 }

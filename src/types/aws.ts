@@ -118,6 +118,16 @@ export interface OrganizationUser {
   accountAccess: CrossAccountUserAccess[];
 }
 
+// Pagination types
+export interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalUsers: number;
+  limit: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 // API Response types
 export interface UserSearchResponse {
   success: boolean;
@@ -134,6 +144,7 @@ export interface UsersListResponse {
 export interface OrganizationUsersResponse {
   success: boolean;
   data?: OrganizationUser[];
+  pagination?: PaginationInfo;
   error?: string;
 }
 

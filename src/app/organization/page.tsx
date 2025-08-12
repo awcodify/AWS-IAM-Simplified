@@ -7,20 +7,26 @@ import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useRegion } from '@/contexts/RegionContext';
-import { useState, useEffect, useCallback } from 'react';
-import type { AccountInfo, OrganizationUser, OrganizationAccount } from '@/types/aws';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { AccountInfo, OrganizationUser, OrganizationAccount, PaginationInfo } from '@/types/aws';
 
 export default function OrganizationPage() {
   const { awsRegion, ssoRegion } = useRegion();
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [accounts, setAccounts] = useState<OrganizationAccount[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [loadingUserAccess, setLoadingUserAccess] = useState<string | null>(null);
   const [loadingBulkAccess, setLoadingBulkAccess] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkAWSConnection = useCallback(async () => {
     const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
@@ -33,18 +39,25 @@ export default function OrganizationPage() {
     }
   }, [awsRegion]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (page: number = 1, search: string = '') => {
     setLoading(true);
     setError(null);
-    setUsers([]);
-    setAccounts([]);
+    
+    // Only reset users and pagination if it's a new search or initial load
+    if (page === 1) {
+      setUsers([]);
+      setPagination(null);
+    }
+    
     setSelectedUser(null);
 
     // Fetch accounts and users in parallel
     const accountsPromise = fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`, {
       cache: 'force-cache'
     });
-    const usersPromise = fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}`, {
+    
+    const usersUrl = `/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=${page}&limit=10${search ? `&search=${encodeURIComponent(search)}` : ''}`;
+    const usersPromise = fetch(usersUrl, {
       cache: 'force-cache'
     });
     
@@ -65,6 +78,7 @@ export default function OrganizationPage() {
 
         setAccounts(accountsData.data || []);
         setUsers(usersData.data || []);
+        setPagination(usersData.pagination || null);
         setIsInitialLoad(false);
       })
       .catch(error => {
@@ -74,6 +88,48 @@ export default function OrganizationPage() {
         setLoading(false);
       });
   }, [ssoRegion, awsRegion]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchData(page, searchTerm);
+  };
+
+  const handleSearchChange = (search: string) => {
+    setSearchTerm(search);
+    
+    // Clear existing timeouts
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    // If search is cleared, fetch immediately and hide loading
+    if (search === '') {
+      setSearchLoading(false);
+      setCurrentPage(1);
+      fetchData(1, search);
+      return;
+    }
+    
+    // Show loading spinner after 200ms delay (only if user is still typing)
+    loadingTimeoutRef.current = setTimeout(() => {
+      setSearchLoading(true);
+    }, 200);
+    
+    // Debounce actual search API call for 500ms
+    searchTimeoutRef.current = setTimeout(() => {
+      setCurrentPage(1);
+      fetchData(1, search).finally(() => {
+        setSearchLoading(false);
+      });
+    }, 500);
+  };
+
+  const handleRefresh = () => {
+    fetchData(currentPage, searchTerm);
+  };
 
   const loadAllUsersAccess = async () => {
     if (users.length === 0) return;
@@ -164,7 +220,17 @@ export default function OrganizationPage() {
   // Automatically fetch data on mount and region changes
   useEffect(() => {
     checkAWSConnection();
-    fetchData();
+    fetchData(1, '');
+    
+    // Cleanup function to clear timeouts
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
   }, [checkAWSConnection, fetchData]);
 
   if (isInitialLoad && loading) {
@@ -209,7 +275,7 @@ export default function OrganizationPage() {
       </button>
       
       <button
-        onClick={fetchData}
+        onClick={handleRefresh}
         disabled={loading}
         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -285,9 +351,15 @@ export default function OrganizationPage() {
         {/* User Access Table */}
         <UserAccessTable
           users={users}
+          pagination={pagination || undefined}
           onUserClick={handleUserClick}
+          onPageChange={handlePageChange}
+          onSearchChange={handleSearchChange}
           selectedUser={selectedUser || undefined}
           loadingUserAccess={loadingUserAccess}
+          searchTerm={searchTerm}
+          loading={loading}
+          searchLoading={searchLoading}
         />
 
         {users.length === 0 && !loading && (
