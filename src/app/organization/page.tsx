@@ -4,7 +4,6 @@ import { Building2, Users, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
-import AccessSummary from '@/components/AccessSummary';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useRegion } from '@/contexts/RegionContext';
@@ -280,14 +279,6 @@ export default function OrganizationPage() {
           <ErrorDisplay
             message={error}
             onRetry={fetchData}
-          />
-        )}
-
-        {/* Access Summary */}
-        {users.length > 0 && accounts.length > 0 && (
-          <AccessSummary 
-            users={users} 
-            totalAccounts={accounts.length} 
           />
         )}
 
