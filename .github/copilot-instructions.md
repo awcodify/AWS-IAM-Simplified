@@ -21,6 +21,7 @@ This is a Next.js TypeScript project for simplifying AWS IAM management. The mai
 - Keep components small and focused
 - Use TypeScript interfaces for AWS responses
 - Handle errors gracefully with user-friendly messages
+- Avoid using try & catch
 
 ## AWS Integration Notes
 - Use environment variables for AWS configuration
