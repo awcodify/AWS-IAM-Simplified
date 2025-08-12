@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Filter, Eye, Database, Server, ChevronLeft, Loader2 } from 'lucide-react';
+import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Eye, Database, Server, ChevronLeft, Loader2 } from 'lucide-react';
 import type { OrganizationUser, CrossAccountUserAccess, PaginationInfo } from '@/types/aws';
 
 interface UserAccessTableProps {
@@ -146,7 +146,6 @@ export default function UserAccessTable({
   loadingBulkAccess = false
 }: UserAccessTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [filterByAccess, setFilterByAccess] = useState<'all' | 'hasAccess' | 'noAccess'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'accounts' | 'permissionSets' | 'services'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -322,20 +321,11 @@ export default function UserAccessTable({
     });
   }, [users]);
 
-  // Since pagination is handled server-side, we only do client-side filtering for non-search filters
+  // Since pagination is handled server-side, we only do client-side sorting
   const filteredAndSortedData = useMemo(() => {
-    let filtered = tableData;
+    let sorted = [...tableData];
     
-    // Apply local filter (not search since that's handled server-side)
-    const matchesFilter = (row: TableRow) => {
-      return filterByAccess === 'all' ||
-        (filterByAccess === 'hasAccess' && row.accessibleAccounts > 0) ||
-        (filterByAccess === 'noAccess' && row.accessibleAccounts === 0);
-    };
-
-    filtered = tableData.filter(matchesFilter);
-
-    filtered.sort((a, b) => {
+    sorted.sort((a, b) => {
       let aValue: number | string;
       let bValue: number | string;
 
@@ -367,8 +357,8 @@ export default function UserAccessTable({
       }
     });
 
-    return filtered;
-  }, [tableData, filterByAccess, sortBy, sortOrder]);
+    return sorted;
+  }, [tableData, sortBy, sortOrder]);
 
   const toggleRowExpansion = (userId: string) => {
     const newExpanded = new Set(expandedRows);
@@ -472,7 +462,7 @@ export default function UserAccessTable({
             )}
             {!loadingBulkAccess && pagination ? (
               <span className="ml-2 text-sm font-normal text-gray-600">
-                ({pagination.totalUsers} total users, {filteredAndSortedData.length} displayed)
+                ({pagination.totalUsers} total users)
               </span>
             ) : !loadingBulkAccess ? (
               <span className="ml-2 text-sm font-normal text-gray-600">
@@ -490,20 +480,6 @@ export default function UserAccessTable({
               searchLoading={searchLoading}
               initialValue={externalSearchTerm}
             />
-          </div>
-
-          {/* Filter */}
-          <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <select
-              value={filterByAccess}
-              onChange={(e) => setFilterByAccess(e.target.value as 'all' | 'hasAccess' | 'noAccess')}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Users</option>
-              <option value="hasAccess">Has Access</option>
-              <option value="noAccess">No Access</option>
-            </select>
           </div>
         </div>
       </div>
