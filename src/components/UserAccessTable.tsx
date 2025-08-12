@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Eye, Database, Server, ChevronLeft, Loader2, Filter, X } from 'lucide-react';
+import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Eye, Database, Server, ChevronLeft, Loader2, Filter, X, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 import type { OrganizationUser, CrossAccountUserAccess, PaginationInfo } from '@/types/aws';
 
 interface UserAccessTableProps {
@@ -422,7 +423,7 @@ export default function UserAccessTable({
           }
           
           // Check legacy roles
-          if (access.roles && (!access.permissionSets || (access.permissionSets as any[])?.length === 0)) {
+          if (access.roles && (!access.permissionSets || (access.permissionSets as unknown[])?.length === 0)) {
             return access.roles.some(role => {
               const name = role.split('/').pop() || role;
               return filters.permissionSets.includes(name);
@@ -608,21 +609,32 @@ export default function UserAccessTable({
                 .map((option, index) => {
                   const isSelected = selectedValues.includes(String(option));
                   return (
-                    <button
+                    <div
                       key={index}
-                      onClick={() => updateFilter(column, String(option))}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center justify-between ${
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center justify-between group ${
                         isSelected ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                     >
-                      <div className="flex items-center">
+                      <button
+                        onClick={() => updateFilter(column, String(option))}
+                        className="flex items-center flex-1"
+                      >
                         <div className={`w-3 h-3 border rounded mr-2 flex items-center justify-center ${
                           isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
                         }`}>
                           {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
                         </div>
-                        <span className="truncate">{String(option)}</span>
-                      </div>
+                        <span className="truncate flex-1">{String(option)}</span>
+                      </button>
+                      {column === 'permissionSets' && (
+                        <Link
+                          href={`/permission-sets/${encodeURIComponent(`arn:aws:sso:::permissionSet/ssoins-example/${option}`)}`}
+                          className="ml-2 text-blue-600 hover:text-blue-800 opacity-0 group-hover:opacity-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      )}
                       {isNumeric && (
                         <span className="text-gray-400 ml-1">
                           ({tableData.filter(row => 
@@ -634,7 +646,7 @@ export default function UserAccessTable({
                           ).length})
                         </span>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
             </div>
@@ -1192,7 +1204,15 @@ export default function UserAccessTable({
                                       <div className="space-y-2">
                                         {access.permissionSets.map((ps, index) => (
                                           <div key={index} className="bg-blue-50 rounded p-2">
-                                            <div className="text-xs font-medium text-blue-900 mb-1">{ps.name}</div>
+                                            <div className="flex items-center justify-between">
+                                              <Link
+                                                href={`/permission-sets/${encodeURIComponent(ps.arn)}?account=${access.accountId}&user=${row.userId}&name=${encodeURIComponent(ps.name)}&back=${encodeURIComponent('/organization')}`}
+                                                className="text-xs font-medium text-blue-900 hover:text-blue-700 hover:underline flex items-center"
+                                              >
+                                                {ps.name}
+                                                <ExternalLink className="w-3 h-3 ml-1" />
+                                              </Link>
+                                            </div>
                                             {ps.description && (
                                               <div className="text-xs text-blue-700 mb-1">{ps.description}</div>
                                             )}
