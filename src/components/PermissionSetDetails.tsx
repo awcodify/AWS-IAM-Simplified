@@ -175,8 +175,8 @@ export default function PermissionSetDetails({
           </div>
           
           <div className="text-right ml-6">
-            <div className="text-xs text-gray-500 mb-1">Permission Set ARN</div>
-            <div className="text-xs font-mono text-gray-700 bg-gray-100 px-2 py-1 rounded max-w-md break-all">
+            <div className="text-xs text-gray-600 mb-1 font-medium">Permission Set ARN</div>
+            <div className="text-xs font-mono text-gray-800 bg-gray-100 px-2 py-1 rounded max-w-md break-all">
               {permissionSetArn}
             </div>
           </div>
@@ -212,8 +212,8 @@ export default function PermissionSetDetails({
                     <div key={index} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-gray-900">{policyName}</div>
-                          <div className="text-xs text-gray-500 font-mono mt-1">{policyArn}</div>
+                          <div className="font-semibold text-gray-800">{policyName}</div>
+                          <div className="text-xs text-gray-600 font-mono mt-1">{policyArn}</div>
                         </div>
                         <a
                           href={`https://console.aws.amazon.com/iam/home#/policies/arn:${policyArn.replace(':', '%3A').replace('/', '%2F')}`}
@@ -259,7 +259,7 @@ export default function PermissionSetDetails({
               <div className="space-y-3">
                 {permissionSet.customerManagedPolicies.map((policy, index) => (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="font-medium text-gray-900">{policy.name}</div>
+                    <div className="font-semibold text-gray-800">{policy.name}</div>
                     <div className="text-sm text-gray-600">Path: {policy.path}</div>
                   </div>
                 ))}
@@ -325,7 +325,7 @@ export default function PermissionSetDetails({
                                   {statement.services.map((service, sIndex) => (
                                     <div key={sIndex} className="flex items-center bg-blue-50 px-2 py-1 rounded text-xs">
                                       {getServiceIcon(service)}
-                                      <span className="ml-1 capitalize">{service}</span>
+                                      <span className="ml-1 capitalize text-blue-800 font-medium">{service}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -337,12 +337,9 @@ export default function PermissionSetDetails({
                               <div className="text-xs font-medium text-gray-700 mb-2">Actions:</div>
                               <div className="bg-gray-50 rounded p-2 max-h-32 overflow-y-auto">
                                 <div className="text-xs font-mono text-gray-700">
-                                  {statement.actions.slice(0, 10).map((action, aIndex) => (
+                                  {statement.actions.map((action, aIndex) => (
                                     <div key={aIndex}>{action}</div>
                                   ))}
-                                  {statement.actions.length > 10 && (
-                                    <div className="text-gray-500">... +{statement.actions.length - 10} more</div>
-                                  )}
                                 </div>
                               </div>
                             </div>
@@ -352,12 +349,9 @@ export default function PermissionSetDetails({
                               <div className="text-xs font-medium text-gray-700 mb-2">Resources:</div>
                               <div className="bg-gray-50 rounded p-2 max-h-32 overflow-y-auto">
                                 <div className="text-xs font-mono text-gray-700">
-                                  {statement.resources.slice(0, 10).map((resource, rIndex) => (
+                                  {statement.resources.map((resource, rIndex) => (
                                     <div key={rIndex}>{resource}</div>
                                   ))}
-                                  {statement.resources.length > 10 && (
-                                    <div className="text-gray-500">... +{statement.resources.length - 10} more</div>
-                                  )}
                                 </div>
                               </div>
                             </div>
@@ -417,16 +411,16 @@ export default function PermissionSetDetails({
                 <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">AWS Managed Policies:</span>
-                      <span className="font-medium">{permissionSet.managedPolicies?.length || 0}</span>
+                      <span className="text-gray-700">AWS Managed Policies:</span>
+                      <span className="font-semibold text-gray-800">{permissionSet.managedPolicies?.length || 0}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Customer Managed Policies:</span>
-                      <span className="font-medium">{permissionSet.customerManagedPolicies?.length || 0}</span>
+                      <span className="text-gray-700">Customer Managed Policies:</span>
+                      <span className="font-semibold text-gray-800">{permissionSet.customerManagedPolicies?.length || 0}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Inline Policy:</span>
-                      <span className="font-medium">{permissionSet.inlinePolicyDocument ? 'Yes' : 'No'}</span>
+                      <span className="text-gray-700">Inline Policy:</span>
+                      <span className="font-semibold text-gray-800">{permissionSet.inlinePolicyDocument ? 'Yes' : 'No'}</span>
                     </div>
                   </div>
                 </div>
