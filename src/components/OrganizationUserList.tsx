@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Users, Building2, AlertCircle, Loader2 } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
 import UserListContainer from './UserListContainer';
+import ErrorDisplay from './ErrorDisplay';
+import LoadingSpinner from './LoadingSpinner';
 import type { OrganizationUser, OrganizationAccount } from '@/types/aws';
 
 export default function OrganizationUserList() {
@@ -158,7 +160,7 @@ export default function OrganizationUserList() {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Organization Users</h2>
             
-            {/* Region Information */}
+            {/* Region Information - Only show if different */}
             {ssoRegion !== awsRegion && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start">
@@ -192,58 +194,26 @@ export default function OrganizationUserList() {
             <p className="mt-2 text-sm text-gray-500">
               Click to load users and accounts from your AWS Organization
             </p>
-
-            {/* Current Region Selection */}
-            <div className="mt-4 flex justify-center items-center space-x-2">
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 font-medium">
-                AWS: {awsRegion}
-              </span>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 font-medium">
-                SSO: {ssoRegion} (env)
-              </span>
-            </div>
           </div>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-              <h3 className="text-red-800 font-medium">Error</h3>
-            </div>
-            <p className="text-red-700 mt-2">{error}</p>
-            <button
-              onClick={fetchData}
-              className="mt-3 inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Try Again
-            </button>
-          </div>
+          <ErrorDisplay
+            message={error}
+            onRetry={fetchData}
+          />
         )}
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading organization data...</span>
-      </div>
-    );
+    return <LoadingSpinner message="Loading organization data..." />;
   }
 
   if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <h3 className="text-red-800 font-medium">Error</h3>
-        </div>
-        <p className="text-red-700 mt-2">{error}</p>
-      </div>
-    );
+    return <ErrorDisplay message={error} />;
   }
 
   return (
@@ -298,7 +268,7 @@ export default function OrganizationUserList() {
             </div>
           </div>
         
-        {/* Help text for region selectors */}
+        {/* Help text for region selectors - Only show if different */}
         {ssoRegion !== awsRegion && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start">
@@ -319,14 +289,6 @@ export default function OrganizationUserList() {
           <div className="flex items-center">
             <Building2 className="w-4 h-4 mr-1" />
             {accounts.length} Accounts
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 font-medium">
-              AWS: {awsRegion}
-            </span>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 font-medium">
-              SSO: {ssoRegion} (env)
-            </span>
           </div>
           <div className="text-xs text-gray-400">
             💡 Use "Load All Access" for efficient bulk loading

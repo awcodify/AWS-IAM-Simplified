@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import Header from '@/components/Header';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
+import PageHeader from '@/components/PageHeader';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountInfo } from '@/types/aws';
-import { Users, Building2, ArrowRight } from 'lucide-react';
+import { Users, Building2, ArrowRight, Zap } from 'lucide-react';
 
 export default function Dashboard() {
   const { awsRegion } = useRegion();
@@ -47,34 +47,15 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <Header accountInfo={accountInfo} />
-      
-      {/* Navigation */}
-      <Navigation />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageLayout accountInfo={accountInfo}>
+      <div className="space-y-8">
         {/* Welcome Section */}
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">AWS IAM Simplified</h1>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Simplify AWS IAM management and understand what resources your users can access. 
-              Choose a view below to get started with analyzing user permissions and access patterns.
-            </p>
-            <div className="mt-6 flex justify-center items-center space-x-4">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
-                Region: {awsRegion}
-              </span>
-              {accountInfo && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 font-medium">
-                  Account: {accountInfo.accountId}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="AWS IAM Simplified"
+          description="Simplify AWS IAM management and understand what resources your users can access. Choose a view below to get started with analyzing user permissions and access patterns."
+          icon={<Zap className="h-12 w-12 text-blue-600" />}
+          accountInfo={accountInfo}
+        />
 
         {/* Dashboard Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -108,7 +89,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Start Guide */}
-        <div className="bg-white shadow rounded-lg p-6 mt-8">
+        <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Start Guide</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-center">
@@ -132,6 +113,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
