@@ -9,52 +9,65 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationAc
   const awsService = new AWSService(region);
   
   // Test connection first
-  return awsService.testConnection()
-    .then(async (isConnected): Promise<NextResponse<OrganizationAccountsResponse>> => {
-      if (!isConnected) {
-        return NextResponse.json({
-          success: false,
-          error: 'AWS credentials not configured or invalid'
-        }, { status: 401 });
-      }
+  const connectionResult = await awsService.testConnection().then(
+    isConnected => ({ success: true as const, isConnected }),
+    error => ({ success: false as const, error })
+  );
 
-      const accounts = await awsService.listOrganizationAccounts();
-      
-      if (accounts.length === 0) {
+  if (!connectionResult.success) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not configured or invalid'
+    }, { status: 401 });
+  }
+
+  if (!connectionResult.isConnected) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not configured or invalid'
+    }, { status: 401 });
+  }
+
+  const accountsResult = await awsService.listOrganizationAccounts().then(
+    accounts => ({ success: true as const, accounts }),
+    error => ({ success: false as const, error })
+  );
+
+  if (!accountsResult.success) {
+    console.error('Error in organization accounts API:', accountsResult.error);
+    
+    // Check for specific error types
+    if (accountsResult.error instanceof Error) {
+      if (accountsResult.error.message.includes('AccessDenied')) {
         return NextResponse.json({
           success: false,
-          error: 'No organization accounts found. Make sure you are using a management account with AWS Organizations enabled.'
+          error: 'Access denied. You may not have permissions to access AWS Organizations.'
         }, { status: 403 });
       }
-
-      return NextResponse.json({
-        success: true,
-        data: accounts
-      });
-    })
-    .catch((error): NextResponse<OrganizationAccountsResponse> => {
-      console.error('Error in organization accounts API:', error);
       
-      // Check for specific error types
-      if (error instanceof Error) {
-        if (error.message.includes('AccessDenied')) {
-          return NextResponse.json({
-            success: false,
-            error: 'Access denied. You may not have permissions to access AWS Organizations.'
-          }, { status: 403 });
-        }
-        
-        if (error.message.includes('UnauthorizedOperation')) {
-          return NextResponse.json({
-            success: false,
-            error: 'Unauthorized operation. Please check your AWS permissions for Organizations.'
-          }, { status: 403 });
-        }
+      if (accountsResult.error.message.includes('UnauthorizedOperation')) {
+        return NextResponse.json({
+          success: false,
+          error: 'Unauthorized operation. Please check your AWS permissions for Organizations.'
+        }, { status: 403 });
       }
-      
-      return NextResponse.json({
-        success: false,
-        error: `Failed to fetch organization accounts: ${error instanceof Error ? error.message : 'Unknown error'}`
-      }, { status: 500 });
-    });
+    }
+    
+    return NextResponse.json({
+      success: false,
+      error: `Failed to fetch organization accounts: ${accountsResult.error instanceof Error ? accountsResult.error.message : 'Unknown error'}`
+    }, { status: 500 });
+  }
+
+  if (accountsResult.accounts.length === 0) {
+    return NextResponse.json({
+      success: false,
+      error: 'No organization accounts found. Make sure you are using a management account with AWS Organizations enabled.'
+    }, { status: 403 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: accountsResult.accounts
+  });
 }

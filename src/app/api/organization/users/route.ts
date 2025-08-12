@@ -13,8 +13,12 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
   const awsService = new AWSService(region);
   
   // Test connection first
-  const isConnected = await awsService.testConnection().then(result => result).catch(() => false);
-  if (!isConnected) {
+  const connectionResult = await awsService.testConnection().then(
+    result => ({ success: true, connected: result }),
+    () => ({ success: false, connected: false })
+  );
+  
+  if (!connectionResult.connected) {
     return NextResponse.json({
       success: false,
       error: 'AWS credentials not configured or invalid'
@@ -22,10 +26,13 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
   }
 
   // Get organization users
-  const organizationUsers = await awsService.getOrganizationUsers(ssoRegion).catch(error => {
-    console.error('Error in organization users API:', error);
-    return null; // Return null on error instead of throwing
-  });
+  const organizationUsers = await awsService.getOrganizationUsers(ssoRegion).then(
+    users => users,
+    error => {
+      console.error('Error in organization users API:', error);
+      return null;
+    }
+  );
 
   if (organizationUsers === null) {
     return NextResponse.json({

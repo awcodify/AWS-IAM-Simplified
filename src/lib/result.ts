@@ -8,12 +8,10 @@ export const Err = <E = Error>(error: E): Result<never, E> => ({ success: false,
 export async function safeAsync<T>(
   promise: Promise<T>
 ): Promise<Result<T, Error>> {
-  try {
-    const data = await promise;
-    return Ok(data);
-  } catch (error) {
-    return Err(error instanceof Error ? error : new Error(String(error)));
-  }
+  return promise.then(
+    (data) => Ok(data),
+    (error) => Err(error instanceof Error ? error : new Error(String(error)))
+  );
 }
 
 export function mapResult<T, U, E>(

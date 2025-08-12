@@ -28,28 +28,40 @@ export async function GET(
   const awsService = new AWSService(region);
   
   // Test connection first
-  return awsService.testConnection()
-    .then(async (isConnected): Promise<NextResponse<UserAccountAccessResponse>> => {
-      if (!isConnected) {
-        return NextResponse.json({
-          success: false,
-          error: 'AWS credentials not configured or invalid'
-        }, { status: 401 });
-      }
+  const connectionResult = await awsService.testConnection().then(
+    isConnected => ({ success: true as const, isConnected }),
+    error => ({ success: false as const, error })
+  );
 
-      const accountAccess = await awsService.getUserAccountAccess(decodeURIComponent(userId), ssoRegion);
-      
-      return NextResponse.json({
-        success: true,
-        data: accountAccess
-      });
-    })
-    .catch((error): NextResponse<UserAccountAccessResponse> => {
-      console.error('Error in user account access API:', error);
-      
-      return NextResponse.json({
-        success: false,
-        error: `Failed to fetch user account access: ${error instanceof Error ? error.message : 'Unknown error'}`
-      }, { status: 500 });
-    });
+  if (!connectionResult.success) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not configured or invalid'
+    }, { status: 401 });
+  }
+
+  if (!connectionResult.isConnected) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not configured or invalid'
+    }, { status: 401 });
+  }
+
+  const accountAccessResult = await awsService.getUserAccountAccess(decodeURIComponent(userId), ssoRegion).then(
+    data => ({ success: true as const, data }),
+    error => ({ success: false as const, error })
+  );
+
+  if (!accountAccessResult.success) {
+    console.error('Error in user account access API:', accountAccessResult.error);
+    return NextResponse.json({
+      success: false,
+      error: `Failed to fetch user account access: ${accountAccessResult.error instanceof Error ? accountAccessResult.error.message : 'Unknown error'}`
+    }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: accountAccessResult.data
+  });
 }

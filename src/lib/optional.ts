@@ -10,12 +10,11 @@ export class Optional<T> {
   }
 
   static async fromAsync<T>(promise: Promise<T>): Promise<Optional<T>> {
-    try {
-      const result = await promise;
-      return Optional.of(result);
-    } catch {
-      return Optional.empty<T>();
-    }
+    const result = await promise.then(
+      (value) => Optional.of(value),
+      () => Optional.empty<T>()
+    );
+    return result;
   }
 
   isPresent(): boolean {

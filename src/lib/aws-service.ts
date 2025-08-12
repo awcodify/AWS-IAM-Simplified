@@ -193,10 +193,13 @@ export class AWSService {
    */
   async listOrganizationAccounts(): Promise<OrganizationAccount[]> {
     const command = new ListAccountsCommand({});
-    const response = await this.organizationsClient.send(command).catch(error => {
-      console.log(`Cannot list organization accounts: ${error.message}`);
-      return { Accounts: [] };
-    });
+    const response = await this.organizationsClient.send(command).then(
+      response => response,
+      error => {
+        console.log(`Cannot list organization accounts: ${error.message}`);
+        return { Accounts: [] };
+      }
+    );
     
     return (response.Accounts || []).map(account => ({
       id: account.Id || '',
@@ -219,10 +222,13 @@ export class AWSService {
     });
 
     // Handle assume role failures gracefully
-    const assumeRoleResponse = await this.stsClient.send(assumeRoleCommand).catch(error => {
-      console.log(`Cannot assume role in account ${accountId}: ${error.message}`);
-      return null;
-    });
+    const assumeRoleResponse = await this.stsClient.send(assumeRoleCommand).then(
+      response => response,
+      error => {
+        console.log(`Cannot assume role in account ${accountId}: ${error.message}`);
+        return null;
+      }
+    );
     
     if (!assumeRoleResponse?.Credentials) {
       return null;
@@ -257,14 +263,17 @@ export class AWSService {
     const getUserCommand = new GetUserCommand({ UserName: userName });
     
     // Handle the specific case where user doesn't exist in the account
-    const userResponse = await iamClient.send(getUserCommand).catch(error => {
-      if (error instanceof NoSuchEntityException) {
-        // User doesn't exist in this account - this is expected
-        return null;
+    const userResponse = await iamClient.send(getUserCommand).then(
+      response => response,
+      error => {
+        if (error instanceof NoSuchEntityException) {
+          // User doesn't exist in this account - this is expected
+          return null;
+        }
+        // Re-throw other errors
+        throw error;
       }
-      // Re-throw other errors
-      throw error;
-    });
+    );
     
     if (userResponse?.User) {
       return {
@@ -309,8 +318,7 @@ export class AWSService {
           console.log(`No SSO instances found in region: ${targetRegion}`);
           return [];
         }
-      })
-      .catch(error => {
+      }, error => {
         console.error(`Error checking SSO instances in region ${targetRegion}:`, error);
         throw error;
       });
@@ -399,8 +407,7 @@ export class AWSService {
         
         console.log(`Returning ${organizationUsers.length} organization users (lazy loading)`);
         return organizationUsers;
-      })
-      .catch(async error => {
+      }, async error => {
         console.error('Error in getOrganizationUsers:', error);
         
         // If there's an error with Identity Center, fall back to IAM users
@@ -450,8 +457,7 @@ export class AWSService {
               if (hasUserAssignment) {
                 userAssignments.push(permissionSetArn);
               }
-            })
-            .catch(error => {
+            }, error => {
               // Continue checking other permission sets if one fails
               console.warn(`Error checking permission set ${permissionSetArn}:`, error);
             });
@@ -465,8 +471,7 @@ export class AWSService {
           roles: userAssignments,
           lastChecked: new Date()
         };
-      })
-      .catch(error => {
+      }, error => {
         console.warn(`Could not check Identity Center access for user ${userId} in account ${accountId}:`, error);
         return {
           accountId,
@@ -524,42 +529,46 @@ export class AWSService {
             PrincipalId: userId
           });
           
-          try {
-            const response = await ssoAdminClient.send(assignmentsCommand);
-            const assignments = response.AccountAssignments || [];
-            console.log(`Found ${assignments.length} account assignments for user ${userId}`);
-            
-            // Group assignments by account ID for this user
-            const accountAssignments = new Map<string, string[]>();
-            assignments.forEach((assignment) => {
-              if (assignment.AccountId && assignment.PermissionSetArn) {
-                const accountId = assignment.AccountId;
-                const existingRoles = accountAssignments.get(accountId) || [];
-                existingRoles.push(assignment.PermissionSetArn);
-                accountAssignments.set(accountId, existingRoles);
-                
-                // Debug: log first few permission set ARNs for the first user
-                if (existingRoles.length <= 3 && userId === userIds[0]) {
-                  console.log('Sample permission set ARN:', assignment.PermissionSetArn);
+          const result = await ssoAdminClient.send(assignmentsCommand).then(
+            response => {
+              const assignments = response.AccountAssignments || [];
+              console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+              
+              // Group assignments by account ID for this user
+              const accountAssignments = new Map<string, string[]>();
+              assignments.forEach((assignment) => {
+                if (assignment.AccountId && assignment.PermissionSetArn) {
+                  const accountId = assignment.AccountId;
+                  const existingRoles = accountAssignments.get(accountId) || [];
+                  existingRoles.push(assignment.PermissionSetArn);
+                  accountAssignments.set(accountId, existingRoles);
+                  
+                  // Debug: log first few permission set ARNs for the first user
+                  if (existingRoles.length <= 3 && userId === userIds[0]) {
+                    console.log('Sample permission set ARN:', assignment.PermissionSetArn);
+                  }
                 }
-              }
-            });
-            
-            // Update the user's access map
-            const userAccess = userAccessMap.get(userId) || [];
-            userAccess.forEach(access => {
-              const roles = accountAssignments.get(access.accountId) || [];
-              if (roles.length > 0) {
-                access.hasAccess = true;
-                access.roles = roles;
-              }
-            });
-            
-            return { userId, success: true };
-          } catch (error) {
-            console.error(`Error getting account assignments for user ${userId}:`, error);
-            return { userId, success: false };
-          }
+              });
+              
+              // Update the user's access map
+              const userAccess = userAccessMap.get(userId) || [];
+              userAccess.forEach(access => {
+                const roles = accountAssignments.get(access.accountId) || [];
+                if (roles.length > 0) {
+                  access.hasAccess = true;
+                  access.roles = roles;
+                }
+              });
+              
+              return { userId, success: true };
+            },
+            error => {
+              console.error(`Error getting account assignments for user ${userId}:`, error);
+              return { userId, success: false };
+            }
+          );
+          
+          return result;
         });
         
         const results = await Promise.all(assignmentPromises);
@@ -568,44 +577,51 @@ export class AWSService {
         
         // Try to get permission set names for better service detection (lightweight call)
         const permissionSetNameMap = new Map<string, string>();
-        try {
-          const uniquePermissionSetArns = new Set<string>();
-          userAccessMap.forEach(userAccess => {
-            userAccess.forEach(access => {
-              if (access.roles) {
-                access.roles.forEach(arn => uniquePermissionSetArns.add(arn));
-              }
-            });
+        
+        const uniquePermissionSetArns = new Set<string>();
+        userAccessMap.forEach(userAccess => {
+          userAccess.forEach(access => {
+            if (access.roles) {
+              access.roles.forEach(arn => uniquePermissionSetArns.add(arn));
+            }
+          });
+        });
+        
+        console.log(`Attempting to fetch names for ${uniquePermissionSetArns.size} unique permission sets`);
+        
+        // Use a more conservative approach - only fetch a few permission set names
+        const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
+        const namePromises = sampleArns.map(async (arn) => {
+          const describeCommand = new DescribePermissionSetCommand({
+            InstanceArn: ssoInstance.InstanceArn,
+            PermissionSetArn: arn
           });
           
-          console.log(`Attempting to fetch names for ${uniquePermissionSetArns.size} unique permission sets`);
-          
-          // Use a more conservative approach - only fetch a few permission set names
-          const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
-          const namePromises = sampleArns.map(async (arn) => {
-            try {
-              const describeCommand = new DescribePermissionSetCommand({
-                InstanceArn: ssoInstance.InstanceArn,
-                PermissionSetArn: arn
-              });
-              const response = await ssoAdminClient.send(describeCommand);
+          return ssoAdminClient.send(describeCommand).then(
+            response => {
               const name = response.PermissionSet?.Name || '';
               if (name) {
                 permissionSetNameMap.set(arn, name);
               }
               return { arn, name };
-            } catch (error) {
+            },
+            error => {
               console.log(`Could not fetch name for permission set ${arn}:`, error);
               return { arn, name: '' };
             }
-          });
-          
-          const permissionSetNames = await Promise.all(namePromises);
-          console.log('Sample permission set names:', permissionSetNames);
-          
-        } catch (error) {
-          console.log('Could not fetch permission set names:', error);
-        }
+          );
+        });
+        
+        const permissionSetNamesResult = await Promise.all(namePromises).then(
+          results => {
+            console.log('Sample permission set names:', results);
+            return true;
+          },
+          error => {
+            console.log('Could not fetch permission set names:', error);
+            return false;
+          }
+        );
         
         // Enhance the response with permission set names where available
         userAccessMap.forEach(userAccess => {
@@ -621,8 +637,7 @@ export class AWSService {
         });
         
         return userAccessMap;
-      })
-      .catch(error => {
+      }, error => {
         console.error('Error getting bulk account access:', error);
         return new Map();
       });
@@ -683,13 +698,17 @@ export class AWSService {
       PermissionSetArn: permissionSetArn
     });
     
-    try {
-      const inlinePolicyResponse = await ssoAdminClient.send(inlinePolicyCommand);
-      details.inlinePolicyDocument = inlinePolicyResponse.InlinePolicy;
-        } catch (error) {
-          // Inline policy might not exist, which is fine
-          console.log('No inline policy found for permission set', error);
-        }    return details;
+    await ssoAdminClient.send(inlinePolicyCommand).then(
+      inlinePolicyResponse => {
+        details.inlinePolicyDocument = inlinePolicyResponse.InlinePolicy;
+      },
+      error => {
+        // Inline policy might not exist, which is fine
+        console.log('No inline policy found for permission set', error);
+      }
+    );
+    
+    return details;
   }
 
   /**
@@ -700,70 +719,70 @@ export class AWSService {
 
     // Parse inline policy if provided
     if (policyDocument) {
-      try {
-        const policy = JSON.parse(policyDocument);
-        if (policy.Statement) {
-          const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
-          
-          statements.forEach((statement: {
-            Effect?: string;
-            Action?: string | string[];
-            Resource?: string | string[];
-            Condition?: Record<string, unknown>;
-          }) => {
-            if (statement.Effect && statement.Action && statement.Resource) {
-              const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
-              const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
-              
-              // Group by service
-              const serviceGroups = new Map<string, { resources: Set<string>, actions: Set<string> }>();
-              
-              actions.forEach((action: string) => {
-                const service = action.split(':')[0] || 'unknown';
-                if (!serviceGroups.has(service)) {
-                  serviceGroups.set(service, { resources: new Set(), actions: new Set() });
-                }
-                serviceGroups.get(service)!.actions.add(action);
-              });
-              
-              resources.forEach((resource: string) => {
-                // Try to determine service from resource ARN
-                let service = 'unknown';
-                if (resource.startsWith('arn:aws:')) {
-                  service = resource.split(':')[2] || 'unknown';
-                } else if (resource === '*') {
-                  // Add to all services
-                  serviceGroups.forEach((group) => {
-                    group.resources.add(resource);
-                  });
-                  return;
-                }
-                
-                if (serviceGroups.has(service)) {
-                  serviceGroups.get(service)!.resources.add(resource);
-                } else {
-                  // Create new service group for this resource
-                  serviceGroups.set(service, { 
-                    resources: new Set([resource]), 
-                    actions: new Set(['*']) 
-                  });
-                }
-              });
-              
-              serviceGroups.forEach((group, service) => {
-                accessDetails.push({
-                  service,
-                  resources: Array.from(group.resources),
-                  actions: Array.from(group.actions),
-                  effect: (statement.Effect as 'Allow' | 'Deny') || 'Allow',
-                  condition: statement.Condition
+      const { safeAsync } = await import('./result');
+      
+      const jsonResult = await safeAsync(Promise.resolve(JSON.parse(policyDocument)));
+      
+      if (jsonResult.success && jsonResult.data?.Statement) {
+        const policy = jsonResult.data;
+        const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
+        
+        statements.forEach((statement: {
+          Effect?: string;
+          Action?: string | string[];
+          Resource?: string | string[];
+          Condition?: Record<string, unknown>;
+        }) => {
+          if (statement.Effect && statement.Action && statement.Resource) {
+            const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+            const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
+            
+            // Group by service
+            const serviceGroups = new Map<string, { resources: Set<string>, actions: Set<string> }>();
+            
+            actions.forEach((action: string) => {
+              const service = action.split(':')[0] || 'unknown';
+              if (!serviceGroups.has(service)) {
+                serviceGroups.set(service, { resources: new Set(), actions: new Set() });
+              }
+              serviceGroups.get(service)!.actions.add(action);
+            });
+            
+            resources.forEach((resource: string) => {
+              // Try to determine service from resource ARN
+              let service = 'unknown';
+              if (resource.startsWith('arn:aws:')) {
+                service = resource.split(':')[2] || 'unknown';
+              } else if (resource === '*') {
+                // Add to all services
+                serviceGroups.forEach((group) => {
+                  group.resources.add(resource);
                 });
+                return;
+              }
+              
+              if (serviceGroups.has(service)) {
+                serviceGroups.get(service)!.resources.add(resource);
+              } else {
+                // Create new service group for this resource
+                serviceGroups.set(service, { 
+                  resources: new Set([resource]), 
+                  actions: new Set(['*']) 
+                });
+              }
+            });
+            
+            serviceGroups.forEach((group, service) => {
+              accessDetails.push({
+                service,
+                resources: Array.from(group.resources),
+                actions: Array.from(group.actions),
+                effect: (statement.Effect as 'Allow' | 'Deny') || 'Allow',
+                condition: statement.Condition
               });
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error parsing inline policy document:', error);
+            });
+          }
+        });
       }
     }
 
@@ -848,22 +867,27 @@ export class AWSService {
               
               // Fetch detailed information for each permission set
               for (const permissionSetArn of roles) {
-                try {
-                  const permissionSetDetails = await this.getPermissionSetDetails(
-                    ssoInstance.InstanceArn, 
-                    permissionSetArn, 
-                    ssoInstance.Region
-                  );
-                  permissionSets.push(permissionSetDetails);
+                const permissionSetResult = await this.getPermissionSetDetails(
+                  ssoInstance.InstanceArn, 
+                  permissionSetArn, 
+                  ssoInstance.Region
+                ).then(
+                  details => ({ success: true, details }),
+                  error => {
+                    console.error(`Error fetching permission set details for ${permissionSetArn}:`, error);
+                    return { success: false, details: null };
+                  }
+                );
+                
+                if (permissionSetResult.success && permissionSetResult.details) {
+                  permissionSets.push(permissionSetResult.details);
                   
                   // Parse detailed access from this permission set
                   const detailedAccess = await this.parseDetailedResourceAccess(
-                    permissionSetDetails.inlinePolicyDocument,
-                    permissionSetDetails.managedPolicies
+                    permissionSetResult.details.inlinePolicyDocument,
+                    permissionSetResult.details.managedPolicies
                   );
                   combinedDetailedAccess = combinedDetailedAccess.concat(detailedAccess);
-                } catch (error) {
-                  console.error(`Error fetching permission set details for ${permissionSetArn}:`, error);
                 }
               }
               
@@ -897,14 +921,12 @@ export class AWSService {
             console.log(`Found ${accessibleCount} accessible accounts out of ${accounts.length} total accounts for user ${userId}`);
             
             return accountAccess;
-          })
-          .catch(error => {
+          }, error => {
             console.error(`Error getting account assignments for user ${userId}:`, error);
             // Fallback to empty array or you could fallback to the old method
             return [];
           });
-      })
-      .catch(error => {
+      }, error => {
         console.error(`Error getting account access for user ${userId}:`, error);
         return [];
       });
@@ -989,8 +1011,7 @@ export class AWSService {
                   lastChecked: new Date()
                 });
               }
-            })
-            .catch(error => {
+            }, error => {
               console.warn(`Error checking account ${account.id}:`, error);
               // Continue with other accounts
             });
@@ -1005,8 +1026,7 @@ export class AWSService {
 
         console.log(`Found ${organizationUsers.length} unique IAM users across organization`);
         return organizationUsers;
-      })
-      .catch(error => {
+      }, error => {
         console.error('Error in getOrganizationIAMUsers:', error);
         return [];
       });

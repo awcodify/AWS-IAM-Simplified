@@ -60,38 +60,43 @@ export default function OrganizationPage() {
       cache: 'force-cache'
     });
     
-    Promise.all([accountsPromise, usersPromise])
+    const results = await Promise.all([accountsPromise, usersPromise])
       .then(async ([accountsResponse, usersResponse]) => {
         const accountsData = await accountsResponse.json();
         const usersData = await usersResponse.json();
 
         if (!accountsData.success) {
-          setError(accountsData.error || 'Failed to fetch organization accounts');
-          return;
+          return { error: accountsData.error || 'Failed to fetch organization accounts' };
         }
 
         if (!usersData.success) {
-          setError(usersData.error || 'Failed to fetch organization users');
-          return;
+          return { error: usersData.error || 'Failed to fetch organization users' };
         }
 
-        setAccounts(accountsData.data || []);
-        const fetchedUsers = usersData.data || [];
-        setUsers(fetchedUsers);
-        setPagination(usersData.pagination || null);
-        setIsInitialLoad(false);
-
-        // Automatically load all users' access data if users were fetched
-        if (fetchedUsers.length > 0) {
-          loadBulkAccessForUsers(fetchedUsers);
-        }
-      })
-      .catch(error => {
-        setError(`Failed to fetch data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      })
-      .finally(() => {
-        setLoading(false);
+        return {
+          accounts: accountsData.data || [],
+          users: usersData.data || [],
+          pagination: usersData.pagination || null
+        };
+      }, error => {
+        return { error: `Failed to fetch data: ${error instanceof Error ? error.message : 'Unknown error'}` };
       });
+
+    if ('error' in results) {
+      setError(results.error);
+    } else {
+      setAccounts(results.accounts);
+      setUsers(results.users);
+      setPagination(results.pagination);
+      setIsInitialLoad(false);
+
+      // Automatically load all users' access data if users were fetched
+      if (results.users.length > 0) {
+        loadBulkAccessForUsers(results.users);
+      }
+    }
+    
+    setLoading(false);
   }, [ssoRegion, awsRegion]);
 
   const handlePageChange = (page: number) => {
@@ -143,21 +148,27 @@ export default function OrganizationPage() {
     
     const userIds = targetUsers.map(user => user.user.UserId);
     
-    try {
-      const response = await fetch('/api/organization/users/bulk-access', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userIds,
-          ssoRegion: encodeURIComponent(ssoRegion),
-          region: encodeURIComponent(awsRegion)
-        }),
-        cache: 'no-store'
+    const response = await fetch('/api/organization/users/bulk-access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userIds,
+        ssoRegion: encodeURIComponent(ssoRegion),
+        region: encodeURIComponent(awsRegion)
+      }),
+      cache: 'no-store'
+    }).catch(error => {
+      console.error('Error loading bulk user access:', error);
+      return null;
+    });
+    
+    if (response) {
+      const result = await response.json().catch(error => {
+        console.error('Error parsing bulk user access response:', error);
+        return { success: false };
       });
-      
-      const result = await response.json();
       
       if (result.success) {
         // Update users' account access
@@ -170,11 +181,9 @@ export default function OrganizationPage() {
       } else {
         console.error('Failed to load bulk user access:', result.error);
       }
-    } catch (error) {
-      console.error('Error loading bulk user access:', error);
-    } finally {
-      setLoadingBulkAccess(false);
     }
+    
+    setLoadingBulkAccess(false);
   };
 
   // Automatically fetch data on mount and region changes
