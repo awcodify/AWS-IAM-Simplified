@@ -48,6 +48,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
     setSummary(null);
 
     const response = await fetch('/api/risk-analysis/stream', {
+      cache: 'force-cache',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

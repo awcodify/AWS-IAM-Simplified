@@ -38,7 +38,9 @@ export default function RiskAnalysisPage() {
       setError(null);
 
       // Fetch permission sets directly instead of users
-      const response = await fetch(`/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`);
+      const response = await fetch(`/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`, {
+        cache: 'force-cache'
+      });
       
       if (!response.ok) {
         setError(`Failed to fetch permission sets: ${response.statusText}`);

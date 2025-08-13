@@ -36,7 +36,9 @@ export default function PermissionSetsPage() {
         ssoRegion: ssoRegion
       });
 
-      const response = await fetch(`/api/permission-sets?${params}`);
+      const response = await fetch(`/api/permission-sets?${params}`, {
+        cache: 'force-cache'
+      });
       const result = await response.json();
 
       if (!result.success) {

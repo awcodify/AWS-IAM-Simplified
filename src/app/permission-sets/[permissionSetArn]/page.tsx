@@ -39,7 +39,9 @@ export default function PermissionSetPage() {
         params.append('name', fallbackName);
       }
 
-      const response = await fetch(`/api/permission-sets/details?${params}`);
+      const response = await fetch(`/api/permission-sets/details?${params}`, {
+        cache: 'force-cache'
+      });
       const result = await response.json();
 
       if (!result.success) {
