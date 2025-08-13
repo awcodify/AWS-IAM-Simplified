@@ -3,12 +3,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Eye, Database, Server, ChevronLeft, Loader2, Filter, X, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import type { OrganizationUser, CrossAccountUserAccess, PaginationInfo } from '@/types/aws';
+import type { OrganizationUser, CrossAccountUserAccess } from '@/types/aws';
 
 interface UserAccessTableProps {
   users: OrganizationUser[];
-  pagination?: PaginationInfo;
-  onPageChange: (page: number) => void;
   onSearchChange: (term: string) => void;
   selectedUser?: string | null;
   searchTerm?: string;
@@ -137,8 +135,6 @@ interface TableRow {
 
 export default function UserAccessTable({ 
   users, 
-  pagination,
-  onPageChange,
   onSearchChange,
   selectedUser, 
   searchTerm: externalSearchTerm = '',
@@ -668,73 +664,6 @@ export default function UserAccessTable({
     );
   };
 
-  const PaginationControls = () => {
-    if (!pagination) return null;
-
-    const { currentPage, totalPages, totalUsers, hasNextPage, hasPreviousPage } = pagination;
-    
-    return (
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
-        <div className="flex items-center text-sm text-gray-700">
-          <span>
-            Showing page {currentPage} of {totalPages} ({totalUsers} total users)
-          </span>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => onPageChange?.(currentPage - 1)}
-            disabled={!hasPreviousPage || loading}
-            className="flex items-center px-3 py-1 text-sm bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Previous
-          </button>
-          
-          {/* Page numbers */}
-          <div className="flex items-center space-x-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => onPageChange?.(pageNum)}
-                  disabled={loading}
-                  className={`px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
-                    currentPage === pageNum
-                      ? 'bg-blue-500 text-white border-blue-500'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-          </div>
-          
-          <button
-            onClick={() => onPageChange?.(currentPage + 1)}
-            disabled={!hasNextPage || loading}
-            className="flex items-center px-3 py-1 text-sm bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       {/* Header with controls */}
@@ -749,15 +678,11 @@ export default function UserAccessTable({
                 Loading access data...
               </span>
             )}
-            {!loadingBulkAccess && pagination ? (
+            {!loadingBulkAccess && (
               <span className="ml-2 text-sm font-normal text-gray-600">
-                ({pagination.totalUsers} total users{hasActiveFilters ? `, ${filteredAndSortedData.length} filtered` : ''})
+                ({filteredAndSortedData.length} user{filteredAndSortedData.length !== 1 ? 's' : ''}{hasActiveFilters ? ' filtered' : ''})
               </span>
-            ) : !loadingBulkAccess ? (
-              <span className="ml-2 text-sm font-normal text-gray-600">
-                ({filteredAndSortedData.length} users{hasActiveFilters ? ' filtered' : ''})
-              </span>
-            ) : null}
+            )}
           </h3>
         </div>
         
@@ -1319,9 +1244,6 @@ export default function UserAccessTable({
           )}
         </div>
       )}
-
-      {/* Pagination Controls */}
-      <PaginationControls />
     </div>
   );
 }

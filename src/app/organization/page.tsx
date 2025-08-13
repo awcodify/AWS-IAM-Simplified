@@ -38,12 +38,12 @@ export default function OrganizationPage() {
     }
   }, [awsRegion]);
 
-  const fetchData = useCallback(async (page: number = 1, search: string = '') => {
+  const fetchData = useCallback(async (page: number = 1, search: string = '', isNewSearch: boolean = false) => {
     setLoading(true);
     setError(null);
     
-    // Only reset users and pagination if it's a new search or initial load
-    if (page === 1) {
+    // Only reset users and pagination for new searches or initial load
+    if (isNewSearch || isInitialLoad) {
       setUsers([]);
       setPagination(null);
     }
@@ -101,7 +101,7 @@ export default function OrganizationPage() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchData(page, searchTerm);
+    fetchData(page, searchTerm, false);
   };
 
   const handleSearchChange = (search: string) => {
@@ -119,7 +119,7 @@ export default function OrganizationPage() {
     if (search === '') {
       setSearchLoading(false);
       setCurrentPage(1);
-      fetchData(1, search);
+      fetchData(1, search, true);
       return;
     }
     
@@ -131,14 +131,14 @@ export default function OrganizationPage() {
     // Debounce actual search API call for 500ms
     searchTimeoutRef.current = setTimeout(() => {
       setCurrentPage(1);
-      fetchData(1, search).finally(() => {
+      fetchData(1, search, true).finally(() => {
         setSearchLoading(false);
       });
     }, 500);
   };
 
   const handleRefresh = () => {
-    fetchData(currentPage, searchTerm);
+    fetchData(currentPage, searchTerm, false);
   };
 
   const loadBulkAccessForUsers = async (targetUsers: OrganizationUser[]) => {
@@ -181,7 +181,7 @@ export default function OrganizationPage() {
   // Automatically fetch data on mount and region changes
   useEffect(() => {
     checkAWSConnection();
-    fetchData(1, '');
+    fetchData(1, '', true);
     
     // Cleanup function to clear timeouts
     return () => {
@@ -208,7 +208,7 @@ export default function OrganizationPage() {
         <ErrorDisplay
           title="Failed to Load Organization Data"
           message={error}
-          onRetry={fetchData}
+          onRetry={() => fetchData(1, '', true)}
           retryLabel="Retry Loading"
         />
       </PageLayout>
@@ -272,15 +272,13 @@ export default function OrganizationPage() {
         {error && !isInitialLoad && (
           <ErrorDisplay
             message={error}
-            onRetry={fetchData}
+            onRetry={() => fetchData(currentPage, searchTerm, false)}
           />
         )}
 
         {/* User Access Table */}
         <UserAccessTable
           users={users}
-          pagination={pagination ?? undefined}
-          onPageChange={handlePageChange}
           onSearchChange={handleSearchChange}
           selectedUser={selectedUser || undefined}
           searchTerm={searchTerm}
@@ -288,6 +286,76 @@ export default function OrganizationPage() {
           searchLoading={searchLoading}
           loadingBulkAccess={loadingBulkAccess}
         />
+        
+        {/* Pagination - Rendered in Parent */}
+        {pagination && (
+          <div className="mt-4 bg-white rounded-lg shadow">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+              <div className="flex items-center text-sm text-gray-700">
+                <span>
+                  Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalUsers} total users)
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    console.log('PARENT Previous clicked - going to page:', pagination.currentPage - 1);
+                    handlePageChange(pagination.currentPage - 1);
+                  }}
+                  disabled={!pagination.hasPreviousPage || loading}
+                  className="flex items-center px-3 py-1 text-sm bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ←
+                  Previous
+                </button>
+                
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (pagination.totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (pagination.currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                    pageNum = pagination.totalPages - 4 + i;
+                  } else {
+                    pageNum = pagination.currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => {
+                        console.log('PARENT Page number clicked:', pageNum);
+                        handlePageChange(pageNum);
+                      }}
+                      disabled={loading}
+                      className={`px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
+                        pagination.currentPage === pageNum
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => {
+                    console.log('PARENT Next clicked - going to page:', pagination.currentPage + 1);
+                    handlePageChange(pagination.currentPage + 1);
+                  }}
+                  disabled={!pagination.hasNextPage || loading}
+                  className="flex items-center px-3 py-1 text-sm bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {users.length === 0 && !loading && (
           <div className="bg-gray-50 rounded-lg p-8 text-center">
