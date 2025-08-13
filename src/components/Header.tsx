@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Building2, ChevronDown, CheckCircle2, Globe } from 'lucide-react';
+import { Building2, ChevronDown, CheckCircle2, Globe, User } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
 
 interface HeaderProps {
@@ -147,10 +147,19 @@ export default function Header({ accountInfo }: HeaderProps) {
 
             {/* Account Info */}
             {accountInfo && (
-              <div className="flex items-center text-sm text-gray-600">
-                <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
-                <span className="hidden sm:inline mr-1">Account:</span>
-                {accountInfo.accountId}
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
+                  <span className="hidden sm:inline mr-1">Account:</span>
+                  {accountInfo.accountId}
+                </div>
+                <div className="flex items-center">
+                  <User className="h-4 w-4 text-blue-600 mr-2" />
+                  <span className="hidden sm:inline mr-1">User:</span>
+                  <span className="font-medium">
+                    {accountInfo.userId?.split(':')[1] || accountInfo.userId}
+                  </span>
+                </div>
               </div>
             )}
           </div>
