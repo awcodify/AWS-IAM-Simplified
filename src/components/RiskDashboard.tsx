@@ -325,37 +325,37 @@ export default function RiskDashboard({
       <div className="p-6 border-b border-gray-200 bg-gray-50">
         <div className="flex flex-wrap gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Risk Level</label>
             <select
               value={selectedRiskLevel}
               onChange={(e) => setSelectedRiskLevel(e.target.value as RiskLevel | 'ALL')}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="ALL">All Levels</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-              <option value="INFO">Info</option>
+              <option value="ALL" className="text-gray-900">All Levels</option>
+              <option value="CRITICAL" className="text-gray-900">Critical</option>
+              <option value="HIGH" className="text-gray-900">High</option>
+              <option value="MEDIUM" className="text-gray-900">Medium</option>
+              <option value="LOW" className="text-gray-900">Low</option>
+              <option value="INFO" className="text-gray-900">Info</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Category</label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value as RiskCategory | 'ALL')}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="ALL">All Categories</option>
-              <option value="OVERLY_PERMISSIVE">Overly Permissive</option>
-              <option value="PRIVILEGE_ESCALATION">Privilege Escalation</option>
-              <option value="DATA_EXPOSURE">Data Exposure</option>
-              <option value="ADMINISTRATIVE_ACCESS">Administrative Access</option>
-              <option value="SECURITY_MISCONFIGURATION">Security Misconfiguration</option>
-              <option value="COMPLIANCE_VIOLATION">Compliance Violation</option>
-              <option value="UNUSED_PERMISSIONS">Unused Permissions</option>
-              <option value="SERVICE_SPECIFIC">Service Specific</option>
+              <option value="ALL" className="text-gray-900">All Categories</option>
+              <option value="OVERLY_PERMISSIVE" className="text-gray-900">Overly Permissive</option>
+              <option value="PRIVILEGE_ESCALATION" className="text-gray-900">Privilege Escalation</option>
+              <option value="DATA_EXPOSURE" className="text-gray-900">Data Exposure</option>
+              <option value="ADMINISTRATIVE_ACCESS" className="text-gray-900">Administrative Access</option>
+              <option value="SECURITY_MISCONFIGURATION" className="text-gray-900">Security Misconfiguration</option>
+              <option value="COMPLIANCE_VIOLATION" className="text-gray-900">Compliance Violation</option>
+              <option value="UNUSED_PERMISSIONS" className="text-gray-900">Unused Permissions</option>
+              <option value="SERVICE_SPECIFIC" className="text-gray-900">Service Specific</option>
             </select>
           </div>
 
