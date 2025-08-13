@@ -92,12 +92,17 @@ export default function RiskAnalysisPage() {
   if (loading) {
     return (
       <PageLayout>
-        <PageHeader
-          title="IAM Risk Analysis"
-          description="Comprehensive security risk assessment for IAM permission sets"
-          icon={<Shield className="h-12 w-12 text-red-600" />}
-        />
-        <LoadingSpinner />
+        <div className="bg-white shadow overflow-hidden rounded-lg">
+          <PageHeader
+            title="IAM Risk Analysis"
+            description="Comprehensive security risk assessment for IAM permission sets"
+            icon={<Shield className="h-12 w-12 text-red-600" />}
+          />
+          <div className="p-12 text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-red-500 mx-auto mb-4" />
+            <p className="text-gray-600">Loading permission sets...</p>
+          </div>
+        </div>
       </PageLayout>
     );
   }
@@ -105,51 +110,56 @@ export default function RiskAnalysisPage() {
   if (error && permissionSets.length === 0) {
     return (
       <PageLayout>
-        <PageHeader
-          title="IAM Risk Analysis"
-          description="Comprehensive security risk assessment for IAM permission sets"
-          icon={<AlertTriangle className="h-12 w-12 text-red-600" />}
-        />
-        <ErrorDisplay 
-          message={error}
-          onRetry={() => window.location.reload()}
-        />
+        <div className="bg-white shadow overflow-hidden rounded-lg">
+          <PageHeader
+            title="IAM Risk Analysis"
+            description="Comprehensive security risk assessment for IAM permission sets"
+            icon={<AlertTriangle className="h-12 w-12 text-red-600" />}
+          />
+          <div className="p-6">
+            <ErrorDisplay 
+              message={error}
+              onRetry={() => window.location.reload()}
+            />
+          </div>
+        </div>
       </PageLayout>
     );
   }
 
   return (
     <PageLayout>
-      <PageHeader
-        title="IAM Risk Analysis"
-        description="Real-time comprehensive security risk assessment for IAM permission sets"
-        icon={<Shield className="h-12 w-12 text-red-600" />}
-      />
+      <div className="bg-white shadow overflow-hidden rounded-lg">
+        <PageHeader
+          title="IAM Risk Analysis"
+          description="Real-time comprehensive security risk assessment for IAM permission sets"
+          icon={<Shield className="h-12 w-12 text-red-600" />}
+          rightText={`Last analyzed: ${new Date().toLocaleString()}`}
+        />
 
-      <div className="space-y-6">
         {/* Error Display */}
         {error && (
-          <ErrorDisplay 
-            message={error} 
-            onRetry={retryAnalysis}
-          />
+          <div className="p-6 border-b border-gray-200">
+            <ErrorDisplay 
+              message={error} 
+              onRetry={retryAnalysis}
+            />
+          </div>
         )}
 
         {/* Risk Dashboard - shows results as they come in */}
-        <div className="space-y-4">
-          <div>
-            <RiskDashboard 
-              userRiskProfiles={userRiskProfiles}
-              progress={progress}
-              isStreaming={isStreaming}
-              onRefresh={retryAnalysis}
-            />
-          </div>
+        <div>
+          <RiskDashboard 
+            userRiskProfiles={userRiskProfiles}
+            progress={progress}
+            isStreaming={isStreaming}
+            onRefresh={retryAnalysis}
+          />
         </div>
 
         {/* Empty State */}
         {!loading && !isStreaming && permissionSets.length === 0 && (
-          <div className="text-center py-12">
+          <div className="p-6 text-center">
             <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Permission Sets Found</h3>
             <p className="text-gray-600 mb-4">
@@ -173,7 +183,7 @@ export default function RiskAnalysisPage() {
 
         {/* Analysis Info */}
         {userRiskProfiles.length > 0 && (
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="p-6 bg-gray-50">
             <h4 className="text-sm font-medium text-gray-900 mb-2">About This Analysis</h4>
             <div className="text-sm text-gray-600 space-y-1">
               <p>• Real-time evaluation of permission sets for security risks</p>

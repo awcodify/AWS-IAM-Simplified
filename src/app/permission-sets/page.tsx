@@ -60,8 +60,15 @@ export default function PermissionSetsPage() {
   if (loading) {
     return (
       <PageLayout>
-        <div className="flex items-center justify-center min-h-96">
-          <div className="text-center">
+        <div className="bg-white shadow overflow-hidden rounded-lg">
+          <PageHeader
+            title="Permission Sets"
+            description="Manage and view AWS SSO permission sets"
+            icon={<Shield className="h-12 w-12 text-blue-600" />}
+            gradientFrom="from-blue-50"
+            gradientTo="to-blue-50"
+          />
+          <div className="p-12 text-center">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
             <p className="text-gray-600">Loading permission sets...</p>
           </div>
@@ -73,22 +80,34 @@ export default function PermissionSetsPage() {
   if (error) {
     return (
       <PageLayout>
-        <ErrorDisplay 
-          message={error}
-          onRetry={() => window.location.reload()}
-        />
+        <div className="bg-white shadow overflow-hidden rounded-lg">
+          <PageHeader
+            title="Permission Sets"
+            description="Manage and view AWS SSO permission sets"
+            icon={<Shield className="h-12 w-12 text-blue-600" />}
+            gradientFrom="from-blue-50"
+            gradientTo="to-blue-50"
+          />
+          <div className="p-6">
+            <ErrorDisplay 
+              message={error}
+              onRetry={() => window.location.reload()}
+            />
+          </div>
+        </div>
       </PageLayout>
     );
   }
 
   return (
     <PageLayout>
-      <div className="space-y-6">
-        {/* Page Header */}
+      <div className="bg-white shadow overflow-hidden rounded-lg">
         <PageHeader
           title="Permission Sets"
           description="Manage and view AWS SSO permission sets"
           icon={<Shield className="h-12 w-12 text-blue-600" />}
+          gradientFrom="from-blue-50"
+          gradientTo="to-blue-50"
         >
           <div className="flex items-center space-x-6 text-sm text-gray-500">
             <div className="flex items-center">
@@ -99,7 +118,7 @@ export default function PermissionSetsPage() {
         </PageHeader>
 
         {/* Search */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="p-6 border-b border-gray-200">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -111,30 +130,34 @@ export default function PermissionSetsPage() {
             />
           </div>
         </div>
-        {/* Permission Sets Grid */}
-        {filteredPermissionSets.length === 0 ? (
-          <div className="bg-white shadow rounded-lg p-12 text-center">
-            <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm ? 'No matching permission sets' : 'No permission sets found'}
-            </h3>
-            <p className="text-gray-500">
-              {searchTerm 
-                ? 'Try adjusting your search criteria.' 
-                : 'There are no permission sets configured in this AWS SSO instance.'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredPermissionSets.map((permissionSet) => (
-              <PermissionSetCard 
-                key={permissionSet.arn} 
-                permissionSet={permissionSet} 
-              />
-            ))}
-          </div>
-        )}
+
+        {/* Permission Sets Content */}
+        <div className="p-6">
+          {/* Permission Sets Grid */}
+          {filteredPermissionSets.length === 0 ? (
+            <div className="text-center py-12">
+              <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm ? 'No matching permission sets' : 'No permission sets found'}
+              </h3>
+              <p className="text-gray-500">
+                {searchTerm 
+                  ? 'Try adjusting your search criteria.' 
+                  : 'There are no permission sets configured in this AWS SSO instance.'
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredPermissionSets.map((permissionSet) => (
+                <PermissionSetCard 
+                  key={permissionSet.arn} 
+                  permissionSet={permissionSet} 
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </PageLayout>
   );

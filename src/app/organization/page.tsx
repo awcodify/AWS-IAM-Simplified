@@ -197,7 +197,19 @@ export default function OrganizationPage() {
   if (isInitialLoad && loading) {
     return (
       <PageLayout accountInfo={accountInfo}>
-        <LoadingSpinner message="Loading organization data..." />
+        <div className="bg-white shadow overflow-hidden rounded-lg">
+          <PageHeader
+            title="Organization Users"
+            description="Manage and view all users in your AWS organization"
+            icon={<Building2 className="h-12 w-12 text-indigo-600" />}
+            gradientFrom="from-indigo-50"
+            gradientTo="to-purple-50"
+          />
+          <div className="p-12 text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-4" />
+            <p className="text-gray-600">Loading organization data...</p>
+          </div>
+        </div>
       </PageLayout>
     );
   }

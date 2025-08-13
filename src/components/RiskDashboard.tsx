@@ -20,6 +20,8 @@ interface RiskDashboardProps {
   progress?: StreamingProgress | null;
   isStreaming?: boolean;
   onRefresh?: () => void;
+  gradientFrom?: string; // Custom gradient start color
+  gradientTo?: string; // Custom gradient end color
 }
 
 const RiskLevelBadge = ({ level, count }: { level: RiskLevel; count?: number }) => {
@@ -142,12 +144,6 @@ const ProgressDisplay = ({
                 style={{ width: `${Math.min(progress.progress, 100)}%` }}
               />
             </div>
-            
-            {progress.permissionSetName && (
-              <div className="text-sm text-gray-600">
-                Current: <span className="font-medium">{progress.permissionSetName}</span>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -160,7 +156,9 @@ export default function RiskDashboard({
   loading = false, 
   progress,
   isStreaming = false,
-  onRefresh 
+  onRefresh,
+  gradientFrom = 'from-red-50',
+  gradientTo = 'to-orange-50'
 }: RiskDashboardProps) {
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<RiskLevel | 'ALL'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<RiskCategory | 'ALL'>('ALL');
@@ -266,20 +264,7 @@ export default function RiskDashboard({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      {/* Header */}
-      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <Shield className="w-6 h-6 mr-2 text-red-600" />
-            IAM Risk Analysis Dashboard
-          </h2>
-          <div className="text-sm text-gray-600">
-            Last analyzed: {new Date().toLocaleString()}
-          </div>
-        </div>
-      </div>
-
+    <div className="bg-white overflow-hidden">
       {/* Progress Display */}
       {(progress || isStreaming) && (
         <div className="p-6 border-b border-gray-200">
