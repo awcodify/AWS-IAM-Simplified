@@ -100,7 +100,7 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
 
   // Filter users based on selected criteria
   const filteredUsers = useMemo(() => {
-    return userRiskProfiles.filter(profile => {
+    const filtered = userRiskProfiles.filter(profile => {
       if (selectedRiskLevel !== 'ALL' && profile.riskLevel !== selectedRiskLevel) {
         return false;
       }
@@ -112,6 +112,7 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
       
       return true;
     });
+    return filtered;
   }, [userRiskProfiles, selectedRiskLevel, selectedCategory]);
 
   const toggleUserExpansion = (userId: string) => {

@@ -1,24 +1,36 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, Users, TrendingUp, ArrowLeft, Loader2 } from 'lucide-react';
+import { Shield, AlertTriangle, Users, TrendingUp, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import RiskDashboard from '@/components/RiskDashboard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import StreamingProgressDisplay from '@/components/StreamingProgressDisplay';
 import { useRegion } from '@/contexts/RegionContext';
+import { useStreamingRiskAnalysis } from '@/hooks/useStreamingRiskAnalysis';
 import type { OrganizationUser } from '@/types/aws';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 
 export default function RiskAnalysisPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const [users, setUsers] = useState<OrganizationUser[]>([]);
-  const [userRiskProfiles, setUserRiskProfiles] = useState<UserRiskProfile[]>([]);
+  const [permissionSets, setPermissionSets] = useState<OrganizationUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [riskAnalysisLoading, setRiskAnalysisLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userDismissed, setUserDismissed] = useState(false);
+  
+  // Use the streaming hook
+  const {
+    results: userRiskProfiles,
+    progress,
+    summary,
+    isStreaming,
+    error: streamingError,
+    startStreaming,
+    resetResults
+  } = useStreamingRiskAnalysis();
 
   // Fetch permission sets for analysis
   useEffect(() => {
@@ -36,7 +48,7 @@ export default function RiskAnalysisPage() {
       }
 
       const data = await response.json();
-      setUsers(data.data || []); // API returns permission sets in data.data
+      setPermissionSets(data.data || []); // API returns permission sets in data.data
       setLoading(false);
     };
 
@@ -46,46 +58,43 @@ export default function RiskAnalysisPage() {
     });
   }, [ssoRegion]);
 
-  // Perform risk analysis on permission sets
-  const performRiskAnalysis = async () => {
-    if (users.length === 0) return;
-
-    setRiskAnalysisLoading(true);
-    setError(null);
-
-    const response = await fetch('/api/risk-analysis', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        permissionSets: users, // Pass permission sets instead of users
-        region: awsRegion,
-        ssoRegion: ssoRegion,
-        analysisType: 'permission-sets' // Flag to indicate we're analyzing permission sets
-      }),
-    });
-
-    if (!response.ok) {
-      setError(`Risk analysis failed: ${response.statusText}`);
-      setRiskAnalysisLoading(false);
-      return;
-    }
-
-    const data = await response.json();
-    setUserRiskProfiles(data.permissionSetRiskProfiles || []); // Rename but reuse the same state
-    setRiskAnalysisLoading(false);
-  };
-
-  // Auto-start risk analysis when permission sets are loaded
+  // Auto-start streaming risk analysis when permission sets are loaded
   useEffect(() => {
-    if (users.length > 0 && userRiskProfiles.length === 0) {
-      performRiskAnalysis().catch(err => {
+    if (permissionSets.length > 0 && userRiskProfiles.length === 0 && !isStreaming && !userDismissed) {
+      startStreaming(permissionSets, awsRegion, ssoRegion).catch(err => {
         setError(err instanceof Error ? err.message : 'Risk analysis failed');
-        setRiskAnalysisLoading(false);
       });
     }
-  }, [users]);
+  }, [permissionSets, userRiskProfiles.length, isStreaming, startStreaming, awsRegion, ssoRegion, userDismissed]);
+
+  // Handle streaming error
+  useEffect(() => {
+    if (streamingError) {
+      setError(streamingError);
+    }
+  }, [streamingError]);
+
+  // Debug effect to log results changes
+  useEffect(() => {
+    console.log('Risk analysis results updated:', userRiskProfiles.length, userRiskProfiles);
+  }, [userRiskProfiles]);
+
+  // Manual retry function
+  const handleCloseProgress = () => {
+    setUserDismissed(true);
+    resetResults();
+  };
+
+  const retryAnalysis = () => {
+    setError(null);
+    setUserDismissed(false); // Reset dismissed flag when retrying
+    resetResults();
+    if (permissionSets.length > 0) {
+      startStreaming(permissionSets, awsRegion, ssoRegion).catch(err => {
+        setError(err instanceof Error ? err.message : 'Risk analysis failed');
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -100,7 +109,7 @@ export default function RiskAnalysisPage() {
     );
   }
 
-  if (error && users.length === 0) {
+  if (error && permissionSets.length === 0) {
     return (
       <PageLayout>
         <PageHeader
@@ -120,95 +129,90 @@ export default function RiskAnalysisPage() {
     <PageLayout>
       <PageHeader
         title="IAM Risk Analysis"
-        description="Comprehensive security risk assessment for IAM permission sets"
+        description="Real-time comprehensive security risk assessment for IAM permission sets"
         icon={<Shield className="h-12 w-12 text-red-600" />}
-      >
-        <div className="flex items-center space-x-4">
-          <Link
-            href="/permission-sets"
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Permission Sets
-          </Link>
-          
-          {users.length > 0 && (
+      />
+
+      <div className="space-y-6">
+        {/* Action Controls */}
+        {permissionSets.length > 0 && (
+          <div className="flex justify-between items-center">
             <button
-              onClick={() => performRiskAnalysis().catch(err => {
-                setError(err instanceof Error ? err.message : 'Risk analysis failed');
-                setRiskAnalysisLoading(false);
-              })}
-              disabled={riskAnalysisLoading}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md"
+              onClick={retryAnalysis}
+              disabled={isStreaming}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {riskAnalysisLoading ? (
+              {isStreaming ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Analyzing...
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Re-analyze Risks
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {userRiskProfiles.length > 0 ? 'Re-analyze' : 'Start Analysis'}
                 </>
               )}
             </button>
-          )}
-        </div>
-      </PageHeader>
 
-      <div className="space-y-6">
-        {/* Risk Analysis Status */}
-        {riskAnalysisLoading && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 gap-6">
-            <div className="flex items-center justify-center space-x-3">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-              <div>
-                <h3 className="text-lg font-medium text-blue-900">Analyzing Security Risks</h3>
-                <p className="text-blue-700">
-                  Evaluating {users.length} permission sets across organization accounts...
-                </p>
-              </div>
-            </div>
+            <Link
+              href="/permission-sets"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Permission Sets
+            </Link>
           </div>
         )}
 
+        {/* Streaming Progress Display */}
+        <StreamingProgressDisplay 
+          progress={progress}
+          isStreaming={isStreaming}
+          onClose={handleCloseProgress}
+        />
+
         {/* Error Display */}
-        {error && userRiskProfiles.length === 0 && (
+        {error && (
           <ErrorDisplay 
-            message={error}
-            onRetry={() => performRiskAnalysis().catch(err => {
-              setError(err instanceof Error ? err.message : 'Risk analysis failed');
-              setRiskAnalysisLoading(false);
-            })}
+            message={error} 
+            onRetry={retryAnalysis}
           />
         )}
 
-        {/* Risk Dashboard */}
-        {userRiskProfiles.length > 0 && (
-          <RiskDashboard 
-            userRiskProfiles={userRiskProfiles}
-            loading={riskAnalysisLoading}
-          />
-        )}
-
-        {/* No Data State */}
-        {!loading && !riskAnalysisLoading && users.length === 0 && (
-          <div className="text-center py-12">
-            <Shield className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No permission sets found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Make sure you have access to the organization and permission sets are configured.
-            </p>
-            <div className="mt-6">
-              <Link
-                href="/permission-sets"
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                View Permission Sets
-              </Link>
+        {/* Risk Dashboard - shows results as they come in */}
+        <div className="space-y-4">
+          <div>
+            <div className="mb-4 text-sm text-gray-600">
+              Showing {userRiskProfiles.length} permission set{userRiskProfiles.length !== 1 ? 's' : ''} analyzed
             </div>
+            <RiskDashboard 
+              userRiskProfiles={userRiskProfiles}
+            />
+          </div>
+        </div>
+
+        {/* Empty State */}
+        {!loading && !isStreaming && permissionSets.length === 0 && (
+          <div className="text-center py-12">
+            <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Permission Sets Found</h3>
+            <p className="text-gray-600 mb-4">
+              No permission sets were found in the specified region. Make sure you have:
+            </p>
+            <ul className="text-left text-gray-600 space-y-1 mb-6 max-w-md mx-auto">
+              <li>• AWS SSO is set up in your organization</li>
+              <li>• Permission sets are created in AWS SSO</li>
+              <li>• You have the necessary permissions to view SSO resources</li>
+              <li>• The correct region is selected</li>
+            </ul>
+            <Link
+              href="/permission-sets"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go to Permission Sets
+            </Link>
           </div>
         )}
 
@@ -217,14 +221,14 @@ export default function RiskAnalysisPage() {
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="text-sm font-medium text-gray-900 mb-2">About This Analysis</h4>
             <div className="text-sm text-gray-600 space-y-1">
-              <p>• Evaluates permission sets for overly permissive access patterns</p>
-              <p>• Identifies potential privilege escalation risks</p>
+              <p>• Real-time evaluation of permission sets for security risks</p>
+              <p>• Identifies potential privilege escalation vulnerabilities</p>
               <p>• Detects cross-account access and administrative privileges</p>
               <p>• Analyzes AWS managed policies for security implications</p>
               <p>• Provides actionable recommendations for risk mitigation</p>
             </div>
             <p className="text-xs text-gray-500 mt-3">
-              Last analyzed: {new Date().toLocaleString()}
+              Analysis completed: {summary ? new Date().toLocaleString() : 'In progress...'}
             </p>
           </div>
         )}
