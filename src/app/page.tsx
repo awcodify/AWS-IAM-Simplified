@@ -5,7 +5,6 @@ import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback } from 'react';
-import type { AccountInfo } from '@/types/aws';
 import { 
   Building2, 
   ArrowRight, 
@@ -19,24 +18,12 @@ import {
 
 export default function Dashboard() {
   const { awsRegion, ssoRegion } = useRegion();
-  const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
     totalPermissionSets: 0,
     totalAccounts: 0,
     loading: true
   });
-
-  const checkAWSConnection = useCallback(async () => {
-    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
-      cache: 'force-cache'
-    });
-    const result = await response.json();
-    
-    if (result.success) {
-      setAccountInfo(result.data);
-    }
-  }, [awsRegion]);
 
   const fetchMetrics = useCallback(async () => {
     if (!awsRegion || !ssoRegion) return;
@@ -76,9 +63,8 @@ export default function Dashboard() {
   }, [awsRegion, ssoRegion]);
 
   useEffect(() => {
-    checkAWSConnection();
     fetchMetrics();
-  }, [checkAWSConnection, fetchMetrics]);
+  }, [fetchMetrics]);
 
   const primaryFeatures = [
     {
@@ -114,38 +100,45 @@ export default function Dashboard() {
   ];
 
   return (
-    <PageLayout accountInfo={accountInfo}>
+    <PageLayout>
       <div className="space-y-12">
-        {/* Hero Section */}
-        <div className="relative">
-          <PageHeader
-            title="AWS IAM Simplified"
-            description="Comprehensive AWS IAM management platform that simplifies user access analysis, permission management, and security compliance across your organization."
-            icon={<Zap className="h-12 w-12 text-blue-600" />}
-            gradientFrom="from-blue-50"
-            gradientTo="to-indigo-50"
-          >
-            <div className="flex items-center space-x-6 text-sm">
-              <div className="flex items-center space-x-2">
-                <Globe className="w-4 h-4 text-blue-600" />
-                <span className="text-gray-600">Region: {awsRegion}</span>
+        {/* Enhanced Hero Section with Logo */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-gray-200">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
+              <defs>
+                <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="1"/>
+                </pattern>
+              </defs>
+              <rect width="100" height="100" fill="url(#grid)" />
+            </svg>
+          </div>
+
+          <div className="relative p-8 md:p-12">
+            <div className="max-w-6xl mx-auto">
+              {/* Header with Logo */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center space-x-4">
+                  {/* Logo Section */}
+                  <div>
+                    <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+                      AWS IAM Simplified
+                    </h1>
+                  </div>
+                </div>
               </div>
-              {ssoRegion && (
-                <div className="flex items-center space-x-2">
-                  <Shield className="w-4 h-4 text-blue-600" />
-                  <span className="text-gray-600">SSO: {ssoRegion}</span>
-                </div>
-              )}
-              {accountInfo && (
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span className="text-gray-600">
-                    Connected as {accountInfo.userId} ({accountInfo.accountId})
-                  </span>
-                </div>
-              )}
+
+              {/* Description */}
+              <div className="max-w-4xl mb-8">
+                <p className="text-xl text-gray-700 leading-relaxed">
+                  Comprehensive AWS IAM management platform that simplifies user access analysis, 
+                  permission management, and security compliance across your organization.
+                </p>
+              </div>
             </div>
-          </PageHeader>
+          </div>
         </div>
 
         {/* Metrics Dashboard */}
@@ -225,32 +218,13 @@ export default function Dashboard() {
 
         {/* Primary Features - Redesigned */}
         <div className="space-y-8">
-          <div className="text-center py-12 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl">
-            <div className="max-w-4xl mx-auto px-6">
-              <div className="flex items-center justify-center mb-4">
-                <Shield className="w-8 h-8 text-blue-600 mr-3" />
-                <h3 className="text-2xl font-bold text-gray-900">AWS IAM Simplified</h3>
-              </div>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                Maintain security best practices while ensuring users have the access they need. 
-                Our platform provides comprehensive insights into your AWS IAM configuration, 
-                helping you identify risks and optimize permissions across your organization.
-              </p>
-              <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500">
-                <div className="flex items-center">
-                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                  Real-time Analysis
-                </div>
-                <div className="flex items-center">
-                  <Shield className="w-4 h-4 mr-2 text-blue-600" />
-                  Security Focused
-                </div>
-                <div className="flex items-center">
-                  <Users className="w-4 h-4 mr-2 text-purple-600" />
-                  Organization-wide
-                </div>
-              </div>
-            </div>
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Powerful IAM Management Tools
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Streamline your AWS IAM workflows with our comprehensive suite of management and analysis tools
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -314,6 +288,69 @@ export default function Dashboard() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+
+        {/* Call to Action Section */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl" />
+          <div className="absolute inset-0 bg-black bg-opacity-10 rounded-3xl" />
+          <div className="relative px-8 py-12 text-center">
+            <div className="max-w-3xl mx-auto">
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Ready to Simplify Your AWS IAM Management?
+              </h2>
+              <p className="text-xl text-blue-100 mb-8">
+                Start exploring your organization's access patterns and security posture with our comprehensive analysis tools.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  href="/organization"
+                  className="inline-flex items-center px-6 py-3 rounded-xl bg-white text-blue-600 font-semibold hover:bg-blue-50 transition-colors duration-200 shadow-lg"
+                >
+                  <Users className="w-5 h-5 mr-2" />
+                  View Organization
+                </Link>
+                <Link
+                  href="/risk-analysis"
+                  className="inline-flex items-center px-6 py-3 rounded-xl bg-blue-500 bg-opacity-20 text-white font-semibold hover:bg-opacity-30 transition-all duration-200 border border-white border-opacity-20"
+                >
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  Run Risk Analysis
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Footer */}
+        <div className="text-center py-12 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 mr-3">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900">AWS IAM Simplified</h3>
+            </div>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Maintain security best practices while ensuring users have the access they need. 
+              Our platform provides comprehensive insights into your AWS IAM configuration, 
+              helping you identify risks and optimize permissions across your organization.
+            </p>
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500">
+              <div className="flex items-center">
+                <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                Real-time Analysis
+              </div>
+              <div className="flex items-center">
+                <Shield className="w-4 h-4 mr-2 text-blue-600" />
+                Security Focused
+              </div>
+              <div className="flex items-center">
+                <Users className="w-4 h-4 mr-2 text-purple-600" />
+                Organization-wide
+              </div>
+            </div>
           </div>
         </div>
       </div>

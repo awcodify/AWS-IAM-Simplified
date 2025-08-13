@@ -3,18 +3,16 @@
 import { ReactNode } from 'react';
 import Header from './Header';
 import Navigation from './Navigation';
-import type { AccountInfo } from '@/types/aws';
 
 interface PageLayoutProps {
   children: ReactNode;
-  accountInfo?: AccountInfo | null;
 }
 
-export default function PageLayout({ children, accountInfo }: PageLayoutProps) {
+export default function PageLayout({ children }: PageLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <Header accountInfo={accountInfo} />
+      <Header />
       
       {/* Navigation */}
       <Navigation />

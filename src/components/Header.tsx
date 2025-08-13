@@ -1,15 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Building2, ChevronDown, CheckCircle2, Globe, User } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
+import type { AccountInfo } from '@/types/aws';
 
 interface HeaderProps {
-  accountInfo?: {
-    accountId: string;
-    arn?: string;
-    userId?: string;
-  } | null;
+  // Remove accountInfo prop since we'll handle it internally
 }
 
 interface RegionOption {
@@ -41,10 +38,27 @@ const AWS_REGIONS: RegionOption[] = [
   { value: 'me-south-1', label: 'Middle East (Bahrain)' },
 ];
 
-export default function Header({ accountInfo }: HeaderProps) {
+export default function Header() {
   const { awsRegion, ssoRegion, setAwsRegion } = useRegion();
+  const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const checkAWSConnection = useCallback(async () => {
+    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
+      cache: 'force-cache'
+    });
+    const result = await response.json();
+    
+    if (result.success) {
+      setAccountInfo(result.data);
+    }
+  }, [awsRegion]);
+
+  // Check AWS connection when component mounts or region changes
+  useEffect(() => {
+    checkAWSConnection();
+  }, [checkAWSConnection]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -71,12 +85,19 @@ export default function Header({ accountInfo }: HeaderProps) {
   };
 
   return (
-    <div className="bg-white shadow">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="bg-white shadow border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">AWS IAM Dashboard</h1>
-            <p className="text-gray-600 mt-1">Simplified IAM management and permission tracking</p>
+          {/* Logo and Brand Section */}
+          <div className="flex items-center space-x-4">
+            {/* Gradient Logo Container */}
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg">
+              <Building2 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">AWS IAM Simplified</h1>
+              <p className="text-gray-600 text-sm">Simplified IAM management and permission tracking</p>
+            </div>
           </div>
           
           <div className="flex items-center space-x-4">
@@ -84,12 +105,12 @@ export default function Header({ accountInfo }: HeaderProps) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-w-0"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-w-0 shadow-sm"
                 title={`AWS Region: ${getCurrentRegionLabel()}`}
               >
-                <Building2 className="w-4 h-4 mr-2 text-green-600 flex-shrink-0" />
+                <Globe className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
                 <span className="hidden sm:inline mr-2 flex-shrink-0">AWS:</span>
-                <span className="truncate max-w-24 sm:max-w-32">{awsRegion}</span>
+                <span className="truncate max-w-24 sm:max-w-32 font-semibold">{awsRegion}</span>
                 <ChevronDown className={`w-3 h-3 ml-2 flex-shrink-0 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -147,18 +168,22 @@ export default function Header({ accountInfo }: HeaderProps) {
 
             {/* Account Info */}
             {accountInfo && (
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
-                  <span className="hidden sm:inline mr-1">Account:</span>
-                  {accountInfo.accountId}
+              <div className="flex items-center space-x-3 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-gray-700">Connected</span>
                 </div>
-                <div className="flex items-center">
-                  <User className="h-4 w-4 text-blue-600 mr-2" />
-                  <span className="hidden sm:inline mr-1">User:</span>
-                  <span className="font-medium">
+                <div className="h-4 w-px bg-gray-300"></div>
+                <div className="flex items-center space-x-2">
+                  <User className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-gray-900">
                     {accountInfo.userId?.split(':')[1] || accountInfo.userId}
                   </span>
+                </div>
+                <div className="h-4 w-px bg-gray-300"></div>
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-gray-600">Account:</span>
+                  <span className="text-xs font-medium text-gray-900">{accountInfo.accountId}</span>
                 </div>
               </div>
             )}
