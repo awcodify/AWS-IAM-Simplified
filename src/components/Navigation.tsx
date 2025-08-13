@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Building2, Shield, AlertTriangle } from 'lucide-react';
+import { Home, Users, Shield, AlertTriangle } from 'lucide-react';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -16,7 +16,7 @@ export default function Navigation() {
     {
       href: '/organization',
       label: 'Organization',
-      icon: Building2
+      icon: Users
     },
     {
       href: '/permission-sets',
