@@ -1,13 +1,25 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Shield, AlertTriangle, Users, TrendingUp, TrendingDown, Eye, Filter, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Shield, AlertTriangle, Users, TrendingUp, TrendingDown, Eye, Filter, ChevronDown, ChevronRight, ExternalLink, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import type { UserRiskProfile, RiskFinding, RiskLevel, RiskCategory } from '@/types/risk-analysis';
 import Link from 'next/link';
+
+interface StreamingProgress {
+  currentIndex: number;
+  totalCount: number;
+  permissionSetName: string;
+  message: string;
+  currentStep: string;
+  progress: number;
+}
 
 interface RiskDashboardProps {
   userRiskProfiles: UserRiskProfile[];
   loading?: boolean;
+  progress?: StreamingProgress | null;
+  isStreaming?: boolean;
+  onRefresh?: () => void;
 }
 
 const RiskLevelBadge = ({ level, count }: { level: RiskLevel; count?: number }) => {
@@ -45,21 +57,124 @@ const RiskCategoryIcon = ({ category }: { category: RiskCategory }) => {
   return <span className="text-lg">{iconMap[category] || '❓'}</span>;
 };
 
-export default function RiskDashboard({ userRiskProfiles, loading = false }: RiskDashboardProps) {
+const ProgressDisplay = ({ 
+  progress, 
+  isStreaming,
+  onRefresh
+}: {
+  progress: StreamingProgress | null;
+  isStreaming: boolean;
+  onRefresh?: () => void;
+}) => {
+  const isComplete = progress?.currentStep === 'complete';
+  const hasStarted = Boolean(progress);
+  
+  const getProgressColor = (progress: number) => {
+    if (progress >= 100) return 'bg-green-600';
+    if (progress >= 75) return 'bg-blue-600';
+    if (progress >= 50) return 'bg-yellow-600';
+    return 'bg-gray-600';
+  };
+  
+  return (
+    <div className={`rounded-lg border p-4 transition-all duration-300 ${
+      isComplete 
+        ? 'bg-green-50 border-green-200' 
+        : hasStarted
+        ? 'bg-blue-50 border-blue-200'
+        : 'bg-gray-50 border-gray-200'
+    }`}>
+      
+      {/* Header with title and refresh button */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Risk Analysis
+        </h3>
+        
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isStreaming}
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              isStreaming
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
+            }`}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isStreaming ? 'animate-spin' : ''}`} />
+            {isStreaming ? 'Running...' : 'Refresh Analysis'}
+          </button>
+        )}
+      </div>
+
+      {/* Status and Progress */}
+      <div className="space-y-3">
+        {/* Status Message */}
+        <div className="flex items-center">
+          {isComplete ? (
+            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+          ) : isStreaming ? (
+            <Loader2 className="w-5 h-5 text-blue-600 mr-2 animate-spin" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-gray-400 mr-2" />
+          )}
+          
+          <span className="text-sm font-medium text-gray-900">
+            {progress?.message || 'Ready to start analysis'}
+          </span>
+        </div>
+
+        {/* Progress Bar and Details */}
+        {progress && (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600">
+                Progress: {progress.currentIndex} of {progress.totalCount}
+              </span>
+              <span className="font-medium text-gray-900">
+                {Math.round(progress.progress)}%
+              </span>
+            </div>
+            
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(progress.progress)}`}
+                style={{ width: `${Math.min(progress.progress, 100)}%` }}
+              />
+            </div>
+            
+            {progress.permissionSetName && (
+              <div className="text-sm text-gray-600">
+                Current: <span className="font-medium">{progress.permissionSetName}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default function RiskDashboard({ 
+  userRiskProfiles, 
+  loading = false, 
+  progress,
+  isStreaming = false,
+  onRefresh 
+}: RiskDashboardProps) {
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<RiskLevel | 'ALL'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<RiskCategory | 'ALL'>('ALL');
-  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [expandedPermissionSets, setExpandedPermissionSets] = useState<Set<string>>(new Set());
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
-    const totalUsers = userRiskProfiles.length;
+    const totalPermissionSets = userRiskProfiles.length;
     const allFindings = userRiskProfiles.flatMap(profile => profile.findings);
     
     const criticalFindings = allFindings.filter(f => f.riskLevel === 'CRITICAL').length;
-    const highRiskUsers = userRiskProfiles.filter(p => p.riskLevel === 'CRITICAL' || p.riskLevel === 'HIGH').length;
-    const adminUsers = userRiskProfiles.filter(p => p.adminAccess).length;
-    const crossAccountUsers = userRiskProfiles.filter(p => p.crossAccountAccess).length;
+    const highRiskPermissionSets = userRiskProfiles.filter(p => p.riskLevel === 'CRITICAL' || p.riskLevel === 'HIGH').length;
+    const adminPermissionSets = userRiskProfiles.filter(p => p.adminAccess).length;
 
     const findingsByCategory: Record<RiskCategory, number> = {
       'OVERLY_PERMISSIVE': 0,
@@ -87,19 +202,18 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
     });
 
     return {
-      totalUsers,
+      totalPermissionSets,
       criticalFindings,
-      highRiskUsers,
-      adminUsers,
-      crossAccountUsers,
+      highRiskPermissionSets,
+      adminPermissionSets,
       findingsByCategory,
       findingsByRiskLevel,
       totalFindings: allFindings.length
     };
   }, [userRiskProfiles]);
 
-  // Filter users based on selected criteria
-  const filteredUsers = useMemo(() => {
+  // Filter permission sets based on selected criteria
+  const filteredPermissionSets = useMemo(() => {
     const filtered = userRiskProfiles.filter(profile => {
       if (selectedRiskLevel !== 'ALL' && profile.riskLevel !== selectedRiskLevel) {
         return false;
@@ -115,14 +229,14 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
     return filtered;
   }, [userRiskProfiles, selectedRiskLevel, selectedCategory]);
 
-  const toggleUserExpansion = (userId: string) => {
-    const newExpanded = new Set(expandedUsers);
-    if (newExpanded.has(userId)) {
-      newExpanded.delete(userId);
+  const togglePermissionSetExpansion = (permissionSetId: string) => {
+    const newExpanded = new Set(expandedPermissionSets);
+    if (newExpanded.has(permissionSetId)) {
+      newExpanded.delete(permissionSetId);
     } else {
-      newExpanded.add(userId);
+      newExpanded.add(permissionSetId);
     }
-    setExpandedUsers(newExpanded);
+    setExpandedPermissionSets(newExpanded);
   };
 
   const toggleFindingExpansion = (findingId: string) => {
@@ -166,6 +280,17 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
         </div>
       </div>
 
+      {/* Progress Display */}
+      {(progress || isStreaming) && (
+        <div className="p-6 border-b border-gray-200">
+          <ProgressDisplay 
+            progress={progress || null}
+            isStreaming={isStreaming}
+            onRefresh={onRefresh}
+          />
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="p-6 border-b border-gray-200">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -183,8 +308,8 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
             <div className="flex items-center">
               <Users className="w-8 h-8 text-orange-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-orange-600">High Risk Users</p>
-                <p className="text-2xl font-bold text-orange-900">{dashboardMetrics.highRiskUsers}</p>
+                <p className="text-sm font-medium text-orange-600">High Risk Permission Sets</p>
+                <p className="text-2xl font-bold text-orange-900">{dashboardMetrics.highRiskPermissionSets}</p>
               </div>
             </div>
           </div>
@@ -193,8 +318,8 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
             <div className="flex items-center">
               <Shield className="w-8 h-8 text-purple-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-purple-600">Admin Users</p>
-                <p className="text-2xl font-bold text-purple-900">{dashboardMetrics.adminUsers}</p>
+                <p className="text-sm font-medium text-purple-600">Admin Permission Sets</p>
+                <p className="text-2xl font-bold text-purple-900">{dashboardMetrics.adminPermissionSets}</p>
               </div>
             </div>
           </div>
@@ -203,8 +328,8 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
             <div className="flex items-center">
               <TrendingUp className="w-8 h-8 text-blue-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-blue-600">Cross-Account Users</p>
-                <p className="text-2xl font-bold text-blue-900">{dashboardMetrics.crossAccountUsers}</p>
+                <p className="text-sm font-medium text-blue-600">Total Findings</p>
+                <p className="text-2xl font-bold text-blue-900">{dashboardMetrics.totalFindings}</p>
               </div>
             </div>
           </div>
@@ -242,7 +367,6 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
               <option value="PRIVILEGE_ESCALATION">Privilege Escalation</option>
               <option value="DATA_EXPOSURE">Data Exposure</option>
               <option value="ADMINISTRATIVE_ACCESS">Administrative Access</option>
-              <option value="CROSS_ACCOUNT_ACCESS">Cross-Account Access</option>
               <option value="SECURITY_MISCONFIGURATION">Security Misconfiguration</option>
               <option value="COMPLIANCE_VIOLATION">Compliance Violation</option>
               <option value="UNUSED_PERMISSIONS">Unused Permissions</option>
@@ -252,7 +376,7 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
 
           <div className="flex items-end">
             <div className="text-sm text-gray-600">
-              Showing {filteredUsers.length} of {dashboardMetrics.totalUsers} users
+              Showing {filteredPermissionSets.length} of {dashboardMetrics.totalPermissionSets} permission sets
             </div>
           </div>
         </div>
@@ -276,22 +400,22 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
         </div>
       </div>
 
-      {/* User Risk Profiles */}
+      {/* Permission Set Risk Profiles */}
       <div className="divide-y divide-gray-200">
-        {filteredUsers.length === 0 ? (
+        {filteredPermissionSets.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
-            No users match the selected criteria.
+            No permission sets match the selected criteria.
           </div>
         ) : (
-          filteredUsers.map((profile) => (
+          filteredPermissionSets.map((profile) => (
             <div key={profile.userId} className="p-6">
-              {/* User Header */}
+              {/* Permission Set Header */}
               <div 
                 className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded-lg"
-                onClick={() => toggleUserExpansion(profile.userId)}
+                onClick={() => togglePermissionSetExpansion(profile.userId)}
               >
                 <div className="flex items-center space-x-3">
-                  {expandedUsers.has(profile.userId) ? (
+                  {expandedPermissionSets.has(profile.userId) ? (
                     <ChevronDown className="w-5 h-5 text-gray-400" />
                   ) : (
                     <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -319,11 +443,6 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
                         Admin
                       </span>
                     )}
-                    {profile.crossAccountAccess && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        Cross-Account
-                      </span>
-                    )}
                   </div>
 
                   <span className="text-sm text-gray-500">
@@ -332,28 +451,24 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
                 </div>
               </div>
 
-              {/* Expanded User Details */}
-              {expandedUsers.has(profile.userId) && (
+              {/* Expanded Permission Set Details */}
+              {expandedPermissionSets.has(profile.userId) && (
                 <div className="mt-4 ml-8 space-y-4">
-                  {/* User Summary */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{profile.accountAccess.length}</div>
-                      <div className="text-sm text-gray-600">Accounts</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{profile.totalPermissionSets}</div>
-                      <div className="text-sm text-gray-600">Permission Sets</div>
-                    </div>
+                  {/* Permission Set Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">{profile.findings.length}</div>
                       <div className="text-sm text-gray-600">Total Findings</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-red-600">
-                        {profile.findings.filter(f => f.riskLevel === 'CRITICAL' || f.riskLevel === 'HIGH').length}
+                        {profile.findings.filter((f: RiskFinding) => f.riskLevel === 'CRITICAL' || f.riskLevel === 'HIGH').length}
                       </div>
                       <div className="text-sm text-gray-600">High/Critical</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">{profile.overallRiskScore}</div>
+                      <div className="text-sm text-gray-600">Risk Score</div>
                     </div>
                   </div>
 
@@ -361,7 +476,7 @@ export default function RiskDashboard({ userRiskProfiles, loading = false }: Ris
                   <div>
                     <h5 className="text-md font-medium text-gray-900 mb-3">Risk Findings</h5>
                     <div className="space-y-2">
-                      {profile.findings.map((finding) => (
+                      {profile.findings.map((finding: RiskFinding) => (
                         <div key={finding.id} className="border border-gray-200 rounded-lg">
                           <div 
                             className="p-3 cursor-pointer hover:bg-gray-50"

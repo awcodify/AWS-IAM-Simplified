@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
 interface StreamingProgress {
   currentIndex: number;
@@ -13,118 +13,119 @@ interface StreamingProgress {
 interface StreamingProgressDisplayProps {
   progress: StreamingProgress | null;
   isStreaming: boolean;
-  onClose?: () => void;
+  onRefresh?: () => void;
 }
 
 export default function StreamingProgressDisplay({ 
   progress, 
   isStreaming,
-  onClose
+  onRefresh
 }: StreamingProgressDisplayProps) {
-  if (!progress && !isStreaming) {
-    return null;
-  }
-
-  const getStepIcon = (step: string) => {
-    switch (step) {
-      case 'complete':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-600" />;
-      default:
-        return <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />;
-    }
-  };
-
+  // Always show the component when permission sets are available
+  const isComplete = progress?.currentStep === 'complete';
+  const hasStarted = Boolean(progress);
+  
   const getProgressColor = (progress: number) => {
     if (progress >= 100) return 'bg-green-600';
     if (progress >= 75) return 'bg-blue-600';
     if (progress >= 50) return 'bg-yellow-600';
     return 'bg-gray-600';
   };
-
+  
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+    <div className={`rounded-lg border p-4 transition-all duration-300 ${
+      isComplete 
+        ? 'bg-green-50 border-green-200' 
+        : hasStarted
+        ? 'bg-blue-50 border-blue-200'
+        : 'bg-gray-50 border-gray-200'
+    }`}>
+      
+      {/* Header with title and refresh button */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          {getStepIcon(progress?.currentStep || 'analyzing')}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Risk Analysis Progress
-            </h3>
-            <p className="text-sm text-gray-600">
-              {progress?.message || 'Processing...'}
-            </p>
-          </div>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Risk Analysis
+        </h3>
         
-        <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900">
-              {progress?.currentIndex || 0}/{progress?.totalCount || 0}
-            </div>
-            <div className="text-sm text-gray-600">
-              Permission Sets
-            </div>
-          </div>
-          
-          {/* Close button - show when complete */}
-          {progress?.currentStep === 'complete' && onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Close progress display"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          )}
-        </div>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isStreaming}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              isStreaming
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : isComplete
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : hasStarted
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
+          >
+            <RefreshCw className={`h-4 w-4 ${isStreaming ? 'animate-spin' : ''}`} />
+            <span>
+              {isStreaming ? 'Analyzing...' : hasStarted ? 'Re-analyze' : 'Start Analysis'}
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* Progress Bar */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-gray-700">
-            Overall Progress
-          </span>
-          <span className="text-sm font-medium text-gray-700">
-            {progress?.progress || 0}%
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all duration-300 ${getProgressColor(progress?.progress || 0)}`}
-            style={{ width: `${progress?.progress || 0}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Current Permission Set */}
-      {progress?.permissionSetName && progress?.currentStep === 'analyzing' && (
-        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+      {/* Current Status */}
+      <div className="mb-3">
+        {isStreaming && progress?.permissionSetName ? (
           <div className="flex items-center space-x-2">
             <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-            <span className="text-sm font-medium text-blue-900">
-              Currently analyzing: 
-            </span>
-            <span className="text-sm text-blue-700 font-mono">
+            <span className="text-sm text-gray-700">Currently scanning:</span>
+            <span className="text-sm font-mono bg-white px-2 py-1 rounded border text-blue-700">
               {progress.permissionSetName}
             </span>
           </div>
-        </div>
-      )}
-
-      {/* Completion Message */}
-      {progress?.currentStep === 'complete' && (
-        <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+        ) : isComplete ? (
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium text-green-900">
-              Analysis complete! All permission sets have been analyzed.
+            <span className="text-sm text-green-700 font-medium">
+              Analysis completed successfully
             </span>
+          </div>
+        ) : hasStarted ? (
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <span className="text-sm text-orange-700">
+              Analysis paused or stopped
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2">
+            <div className="h-4 w-4 rounded-full bg-gray-400"></div>
+            <span className="text-sm text-gray-600">
+              Ready to start risk analysis
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Progress Section */}
+      {hasStarted && (
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Progress</span>
+            <span className="font-medium text-gray-900">
+              {progress?.currentIndex || 0} of {progress?.totalCount || 0} permission sets
+            </span>
+          </div>
+          
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(progress?.progress || 0)}`}
+              style={{ width: `${progress?.progress || 0}%` }}
+            />
+          </div>
+          
+          <div className="text-right text-xs text-gray-500">
+            {progress?.progress || 0}% complete
           </div>
         </div>
       )}
+      
     </div>
   );
 }

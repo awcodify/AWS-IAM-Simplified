@@ -8,7 +8,6 @@ import PageHeader from '@/components/PageHeader';
 import RiskDashboard from '@/components/RiskDashboard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import StreamingProgressDisplay from '@/components/StreamingProgressDisplay';
 import { useRegion } from '@/contexts/RegionContext';
 import { useStreamingRiskAnalysis } from '@/hooks/useStreamingRiskAnalysis';
 import type { OrganizationUser } from '@/types/aws';
@@ -79,12 +78,6 @@ export default function RiskAnalysisPage() {
     console.log('Risk analysis results updated:', userRiskProfiles.length, userRiskProfiles);
   }, [userRiskProfiles]);
 
-  // Manual retry function
-  const handleCloseProgress = () => {
-    setUserDismissed(true);
-    resetResults();
-  };
-
   const retryAnalysis = () => {
     setError(null);
     setUserDismissed(false); // Reset dismissed flag when retrying
@@ -134,44 +127,6 @@ export default function RiskAnalysisPage() {
       />
 
       <div className="space-y-6">
-        {/* Action Controls */}
-        {permissionSets.length > 0 && (
-          <div className="flex justify-between items-center">
-            <button
-              onClick={retryAnalysis}
-              disabled={isStreaming}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isStreaming ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  {userRiskProfiles.length > 0 ? 'Re-analyze' : 'Start Analysis'}
-                </>
-              )}
-            </button>
-
-            <Link
-              href="/permission-sets"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Permission Sets
-            </Link>
-          </div>
-        )}
-
-        {/* Streaming Progress Display */}
-        <StreamingProgressDisplay 
-          progress={progress}
-          isStreaming={isStreaming}
-          onClose={handleCloseProgress}
-        />
-
         {/* Error Display */}
         {error && (
           <ErrorDisplay 
@@ -183,11 +138,11 @@ export default function RiskAnalysisPage() {
         {/* Risk Dashboard - shows results as they come in */}
         <div className="space-y-4">
           <div>
-            <div className="mb-4 text-sm text-gray-600">
-              Showing {userRiskProfiles.length} permission set{userRiskProfiles.length !== 1 ? 's' : ''} analyzed
-            </div>
             <RiskDashboard 
               userRiskProfiles={userRiskProfiles}
+              progress={progress}
+              isStreaming={isStreaming}
+              onRefresh={retryAnalysis}
             />
           </div>
         </div>
@@ -223,7 +178,7 @@ export default function RiskAnalysisPage() {
             <div className="text-sm text-gray-600 space-y-1">
               <p>• Real-time evaluation of permission sets for security risks</p>
               <p>• Identifies potential privilege escalation vulnerabilities</p>
-              <p>• Detects cross-account access and administrative privileges</p>
+              <p>• Detects administrative privileges and overly permissive policies</p>
               <p>• Analyzes AWS managed policies for security implications</p>
               <p>• Provides actionable recommendations for risk mitigation</p>
             </div>

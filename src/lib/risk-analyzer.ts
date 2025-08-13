@@ -575,6 +575,107 @@ export class IAMRiskAnalyzer {
   }
 
   /**
+   * Analyze a permission set directly for risk assessment
+   */
+  async analyzePermissionSetDirectly(
+    permissionSet: any,
+    options: RiskAnalysisOptions = {}
+  ): Promise<UserRiskProfile> {
+    const findings: RiskFinding[] = [];
+    let overallRiskScore = 0;
+    let adminAccess = false;
+
+    // Analyze the permission set using the existing method
+    const permissionSetRisk = await this.analyzePermissionSetRisk(permissionSet, 'N/A');
+    
+    if (permissionSetRisk.adminPermissions) {
+      adminAccess = true;
+    }
+    
+    findings.push(...permissionSetRisk.findings);
+    overallRiskScore = permissionSetRisk.riskScore;
+
+    // Check for cross-account permissions in policies (AssumeRole, etc.)
+    let crossAccountAccess = false;
+    for (const policyAnalysis of permissionSetRisk.policyAnalysis) {
+      if (this.hasCrossAccountPermissions(policyAnalysis)) {
+        crossAccountAccess = true;
+        findings.push({
+          id: this.generateFindingId(),
+          title: 'Cross-Account Permissions Detected',
+          description: `Permission set contains policies that may allow cross-account access`,
+          riskLevel: 'MEDIUM' as RiskLevel,
+          category: 'CROSS_ACCOUNT_ACCESS' as RiskCategory,
+          severity: 5,
+          impact: 'Permission set may allow accessing resources in other AWS accounts',
+          recommendation: 'Review cross-account permissions and ensure they follow security best practices',
+          resourceType: 'PERMISSION_SET',
+          resourceArn: permissionSet.arn,
+          resourceName: permissionSet.name,
+          details: {
+            policyName: policyAnalysis.policyName,
+            crossAccountActions: this.extractCrossAccountActions(policyAnalysis)
+          },
+          createdAt: new Date()
+        });
+      }
+    }
+
+    // Create a UserRiskProfile that actually represents a permission set
+    // (keeping the same interface for compatibility with existing components)
+    return {
+      userId: permissionSet.arn,
+      userName: permissionSet.name,
+      displayName: permissionSet.description || permissionSet.name,
+      overallRiskScore,
+      riskLevel: this.determineRiskLevel(overallRiskScore),
+      findings,
+      accountAccess: [], // Not applicable for permission sets
+      totalPermissionSets: 1, // This permission set
+      adminAccess,
+      crossAccountAccess,
+      unusedPermissions: 0, // Would need usage data to determine
+      lastAnalyzed: new Date()
+    };
+  }
+
+  /**
+   * Check if a policy analysis contains cross-account permissions
+   */
+  private hasCrossAccountPermissions(policyAnalysis: PolicyAnalysisResult): boolean {
+    // Check for AssumeRole permissions
+    if (policyAnalysis.servicePermissions['sts']?.includes('AssumeRole')) {
+      return true;
+    }
+    
+    // Check for cross-account resource ARNs in policy document
+    if (policyAnalysis.policyDocument) {
+      const policyStr = JSON.stringify(policyAnalysis.policyDocument);
+      // Look for ARNs that reference other accounts (pattern: arn:aws:*:*:123456789012:*)
+      const crossAccountArnPattern = /arn:aws:[^:]*:[^:]*:\d{12}:/;
+      return crossAccountArnPattern.test(policyStr);
+    }
+    
+    return false;
+  }
+
+  /**
+   * Extract cross-account actions from policy analysis
+   */
+  private extractCrossAccountActions(policyAnalysis: PolicyAnalysisResult): string[] {
+    const crossAccountActions: string[] = [];
+    
+    // Add STS AssumeRole if present
+    if (policyAnalysis.servicePermissions['sts']?.includes('AssumeRole')) {
+      crossAccountActions.push('sts:AssumeRole');
+    }
+    
+    // Could add more sophisticated analysis here
+    
+    return crossAccountActions;
+  }
+
+  /**
    * Determine risk level from numeric score
    */
   private determineRiskLevel(score: number): RiskLevel {

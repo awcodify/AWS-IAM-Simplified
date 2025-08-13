@@ -57,6 +57,20 @@ export interface UserRiskProfile {
   lastAnalyzed: Date;
 }
 
+export interface PermissionSetRiskProfile {
+  permissionSetArn: string;
+  permissionSetName: string;
+  description?: string;
+  overallRiskScore: number; // 1-10 scale
+  riskLevel: RiskLevel;
+  findings: RiskFinding[];
+  policyAnalysis: PolicyAnalysisResult[];
+  adminAccess: boolean;
+  wildcardActions: number;
+  sensitiveServices: string[];
+  lastAnalyzed: Date;
+}
+
 export interface AccountRiskSummary {
   accountId: string;
   accountName?: string;
