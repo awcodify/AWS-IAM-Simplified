@@ -357,63 +357,52 @@ export class AWSService {
   /**
    * Get organization-wide user information (using IAM Identity Center)
    */
-  async getOrganizationUsers(ssoRegion?: string): Promise<OrganizationUser[]> {
-    console.log('Starting getOrganizationUsers...');
+  async getOrganizationUsers(region?: string, includeIAMUsers = true): Promise<OrganizationUser[]> {
+    console.log(`Fetching organization users in region: ${region || this.region}, includeIAMUsers: ${includeIAMUsers}`);
     
-    // Get SSO instances
-    return this.getSSOInstances(ssoRegion)
-      .then(async ssoInstances => {
-        if (ssoInstances.length === 0) {
-          console.warn(`No SSO instances found in region: ${ssoRegion || 'us-east-1'}`);
-          console.warn('This could mean:');
-          console.warn('1. IAM Identity Center is not enabled in this AWS account');
-          console.warn('2. You do not have permissions to access SSO Admin service');
-          console.warn('3. IAM Identity Center is enabled in a different region');
-          
-          // Fallback: Try to get IAM users from organization accounts instead
-          console.log('Falling back to IAM users across organization accounts...');
-          return await this.getOrganizationIAMUsers();
-        }
-
-        console.log(`Found ${ssoInstances.length} SSO instance(s)`);
-        
-        // Use the first SSO instance (typically there's only one)
-        const ssoInstance = ssoInstances[0];
-        console.log('Using SSO instance:', ssoInstance);
-        
-        const currentAccount = await this.getAccountInfo();
-        
-        if (!currentAccount) {
-          console.error('Could not get current account info');
+    // First try to get SSO users
+    const ssoInstances = await this.getSSOInstances(region);
+    const ssoUsers: OrganizationUser[] = [];
+    
+    for (const instance of ssoInstances) {
+      // Get Identity Center users and convert to OrganizationUser format
+      const identityCenterUsers = await this.getIdentityCenterUsers(instance.IdentityStoreId, region)
+        .catch(error => {
+          console.warn(`Failed to fetch SSO users for instance ${instance.InstanceArn}:`, error);
           return [];
-        }
+        });
+      
+      const convertedUsers = identityCenterUsers.map(user => ({
+        user: {
+          ...user,
+          DisplayName: user.DisplayName || user.Name?.Formatted || `${user.Name?.GivenName || ''} ${user.Name?.FamilyName || ''}`.trim(),
+          Status: user.Active ? 'ACTIVE' : 'INACTIVE',
+          Type: 'SSO' as const
+        },
+        homeAccountId: 'organization', // SSO users don't belong to a specific account
+        accountAccess: [] // Will be populated when account access is needed
+      }));
+      ssoUsers.push(...convertedUsers);
+    }
 
-        // Get users from Identity Center
-        console.log('Getting Identity Center users...');
-        const identityCenterUsers = await this.getIdentityCenterUsers(ssoInstance.IdentityStoreId, ssoInstance.Region);
-        console.log(`Found ${identityCenterUsers.length} Identity Center users`);
-        
-        if (identityCenterUsers.length === 0) {
-          console.log('No Identity Center users found, falling back to IAM users...');
-          return await this.getOrganizationIAMUsers();
-        }
-        
-        // Just return users without processing account access (lazy loading)
-        const organizationUsers: OrganizationUser[] = identityCenterUsers.map(user => ({
-          user,
-          homeAccountId: currentAccount.accountId,
-          accountAccess: [] // Empty - will be loaded on demand
-        }));
-        
-        console.log(`Returning ${organizationUsers.length} organization users (lazy loading)`);
-        return organizationUsers;
-      }, async error => {
-        console.error('Error in getOrganizationUsers:', error);
-        
-        // If there's an error with Identity Center, fall back to IAM users
-        console.log('Error with Identity Center, falling back to IAM users...');
-        return await this.getOrganizationIAMUsers();
-      });
+    console.log(`Found ${ssoUsers.length} SSO users`);
+
+    // Only try to get IAM users if explicitly requested and no SSO users found
+    if (includeIAMUsers && ssoUsers.length === 0) {
+      console.log('No SSO users found, falling back to IAM users...');
+      console.log('WARNING: This may fail if cross-account roles are not configured properly.');
+      
+      const iamUsers = await this.getOrganizationIAMUsers()
+        .catch(error => {
+          console.warn('Failed to fetch IAM users from organization accounts. This is normal if cross-account roles are not configured.', error);
+          return [];
+        });
+      
+      console.log(`Found ${iamUsers.length} IAM users across organization`);
+      return [...ssoUsers, ...iamUsers];
+    }
+
+    return ssoUsers;
   }
 
   /**

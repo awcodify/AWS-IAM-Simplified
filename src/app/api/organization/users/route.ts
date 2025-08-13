@@ -9,6 +9,7 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '10');
   const search = searchParams.get('search') || '';
+  const ssoOnly = searchParams.get('ssoOnly') === 'true'; // New parameter to skip IAM users
   
   const awsService = new AWSService(region);
   
@@ -25,8 +26,8 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
     }, { status: 401 });
   }
 
-  // Get organization users
-  const organizationUsers = await awsService.getOrganizationUsers(ssoRegion).then(
+  // Get organization users - use ssoOnly flag to control IAM user fetching
+  const organizationUsers = await awsService.getOrganizationUsers(ssoRegion, !ssoOnly).then(
     users => users,
     error => {
       console.error('Error in organization users API:', error);

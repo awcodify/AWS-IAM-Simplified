@@ -6,7 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountInfo } from '@/types/aws';
-import { Building2, ArrowRight, Zap, Shield } from 'lucide-react';
+import { Building2, ArrowRight, Zap, Shield, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
   const { awsRegion } = useRegion();
@@ -43,6 +43,14 @@ export default function Dashboard() {
       href: '/permission-sets',
       color: 'bg-blue-500',
       hoverColor: 'hover:bg-blue-600'
+    },
+    {
+      title: 'Risk Analysis',
+      description: 'Analyze IAM permissions for security risks and compliance violations. Identify overly permissive access and privilege escalation paths.',
+      icon: AlertTriangle,
+      href: '/risk-analysis',
+      color: 'bg-red-500',
+      hoverColor: 'hover:bg-red-600'
     }
   ];
 
