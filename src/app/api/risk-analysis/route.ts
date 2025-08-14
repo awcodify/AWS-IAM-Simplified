@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
 import { AWSService } from '@/lib/aws-service';
 import type { UserRiskProfile } from '@/types/risk-analysis';
+import type { OrganizationUser, PermissionSetDetails } from '@/types/aws';
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(error => {
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
     const awsService = new AWSService(ssoRegion || region);
 
     // Check if we have any users with account access data
-    const usersWithAccess = users.filter((user: any) => 
+    const usersWithAccess = users.filter((user: OrganizationUser) => 
       user.accountAccess && user.accountAccess.length > 0
     );
 
@@ -200,12 +201,12 @@ export async function POST(request: NextRequest) {
     console.log(`Found ${usersWithAccess.length} users with account access data to analyze`);
 
     // Get all unique permission sets from users (to avoid duplicate API calls)
-    const uniquePermissionSets = new Map<string, any>();
+    const uniquePermissionSets = new Map<string, PermissionSetDetails>();
     
-    usersWithAccess.forEach((user: any) => {
-      user.accountAccess?.forEach((accountAccess: any) => {
+    usersWithAccess.forEach((user: OrganizationUser) => {
+      user.accountAccess?.forEach((accountAccess) => {
         if (accountAccess.hasAccess && accountAccess.permissionSets) {
-          accountAccess.permissionSets.forEach((ps: any) => {
+          accountAccess.permissionSets.forEach((ps) => {
             if (!uniquePermissionSets.has(ps.arn)) {
               uniquePermissionSets.set(ps.arn, ps);
             }
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
     console.log(`Found ${uniquePermissionSets.size} unique permission sets to analyze`);
 
     // Get detailed permission set information once for all unique permission sets
-    const enrichedPermissionSets = new Map<string, any>();
+    const enrichedPermissionSets = new Map<string, PermissionSetDetails>();
     
     // First, get SSO instance to extract instance ARN
     let instanceArn = '';
@@ -284,7 +285,7 @@ export async function POST(request: NextRequest) {
         if (!accountAccess.hasAccess || !accountAccess.permissionSets) continue;
         
         // Replace permission sets with enriched versions
-        accountAccess.permissionSets = accountAccess.permissionSets.map((ps: any) => 
+        accountAccess.permissionSets = accountAccess.permissionSets.map((ps: PermissionSetDetails) => 
           enrichedPermissionSets.get(ps.arn) || ps
         );
       }
@@ -348,7 +349,7 @@ export async function POST(request: NextRequest) {
     });
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   // Return information about the risk analyzer capabilities
   return NextResponse.json({
     name: 'IAM Risk Analyzer',

@@ -57,7 +57,7 @@ export default function PermissionSetPage() {
     if (permissionSetArn && awsRegion && ssoRegion) {
       fetchPermissionSetDetails();
     }
-  }, [permissionSetArn, awsRegion, ssoRegion]);
+  }, [permissionSetArn, awsRegion, ssoRegion, fallbackName]);
 
   if (loading) {
     return (

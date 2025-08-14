@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { AWSService } from '@/lib/aws-service';
 import type { CrossAccountUserAccess } from '@/types/aws';
 
-export async function POST(request: NextRequest) {
-  const requestData = await request.json().catch(() => null);
+export async function POST(request: Request) {
+  try {
+    const requestData = await request.json();
   
   if (!requestData) {
     return NextResponse.json(
@@ -41,4 +42,11 @@ export async function POST(request: NextRequest) {
     success: true,
     data: result
   });
+  } catch (error) {
+    console.error('Error in bulk user access:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }

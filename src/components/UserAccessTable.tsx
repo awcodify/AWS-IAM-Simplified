@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Eye, Database, Server, ChevronLeft, Loader2, Filter, X, ExternalLink } from 'lucide-react';
+import { Users, Building2, Shield, Key, ChevronDown, ChevronRight, Search, Eye, Database, Server, Loader2, Filter, X, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import type { OrganizationUser, CrossAccountUserAccess } from '@/types/aws';
 

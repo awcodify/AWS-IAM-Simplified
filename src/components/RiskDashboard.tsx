@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Shield, AlertTriangle, Users, TrendingUp, TrendingDown, Eye, Filter, ChevronDown, ChevronRight, ExternalLink, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Shield, AlertTriangle, Users, TrendingUp, ChevronDown, ChevronRight, ExternalLink, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import type { UserRiskProfile, RiskFinding, RiskLevel, RiskCategory } from '@/types/risk-analysis';
 import Link from 'next/link';
 
@@ -156,9 +156,7 @@ export default function RiskDashboard({
   loading = false, 
   progress,
   isStreaming = false,
-  onRefresh,
-  gradientFrom = 'from-red-50',
-  gradientTo = 'to-orange-50'
+  onRefresh
 }: RiskDashboardProps) {
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<RiskLevel | 'ALL'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<RiskCategory | 'ALL'>('ALL');

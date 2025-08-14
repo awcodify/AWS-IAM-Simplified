@@ -5,9 +5,8 @@ import { Building2, ChevronDown, CheckCircle2, Globe, User } from 'lucide-react'
 import { useRegion } from '@/contexts/RegionContext';
 import type { AccountInfo } from '@/types/aws';
 
-interface HeaderProps {
-  // Remove accountInfo prop since we'll handle it internally
-}
+// Header component with no external props needed
+// Available for header customization if needed
 
 interface RegionOption {
   value: string;

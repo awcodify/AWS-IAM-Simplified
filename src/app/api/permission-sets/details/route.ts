@@ -6,7 +6,6 @@ export async function GET(request: NextRequest) {
   const permissionSetArn = searchParams.get('arn');
   const fallbackName = searchParams.get('name'); // Optional fallback name
   const ssoRegion = searchParams.get('ssoRegion');
-  const region = searchParams.get('region') || 'us-east-1';
 
   if (!permissionSetArn) {
     return NextResponse.json({

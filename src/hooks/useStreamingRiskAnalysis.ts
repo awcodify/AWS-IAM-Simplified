@@ -1,5 +1,35 @@
 import { useState, useCallback } from 'react';
 import type { UserRiskProfile } from '@/types/risk-analysis';
+import type { PermissionSetDetails } from '@/types/aws';
+
+// Event data interfaces
+interface StartEventData {
+  totalPermissionSets: number;
+  message: string;
+}
+
+interface ResultEventData {
+  permissionSet: UserRiskProfile;
+  completedCount: number;
+  totalCount: number;
+  message: string;
+  currentStep?: string;
+  progress?: number;
+}
+
+interface ProgressEventData {
+  currentIndex: number;
+  totalCount: number;
+  permissionSetName?: string;
+  message: string;
+  currentStep?: string;
+  progress?: number;
+}
+
+interface CompleteEventData {
+  summary: StreamingSummary;
+  message: string;
+}
 
 interface StreamingProgress {
   currentIndex: number;
@@ -25,7 +55,7 @@ interface UseStreamingRiskAnalysisResult {
   summary: StreamingSummary | null;
   isStreaming: boolean;
   error: string | null;
-  startStreaming: (permissionSets: any[], region: string, ssoRegion: string) => Promise<void>;
+  startStreaming: (permissionSets: PermissionSetDetails[], region: string, ssoRegion: string) => Promise<void>;
   resetResults: () => void;
 }
 
@@ -37,7 +67,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
   const [error, setError] = useState<string | null>(null);
 
   const startStreaming = useCallback(async (
-    permissionSets: any[],
+    permissionSets: PermissionSetDetails[],
     region: string,
     ssoRegion: string
   ) => {
@@ -105,7 +135,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
           const eventData = line.substring(5).trim();
           if (!eventData) continue;
 
-          let data: any;
+          let data: unknown;
           try {
             data = JSON.parse(eventData);
           } catch {
@@ -120,31 +150,34 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
           if (currentEventType === 'start') {
             // Start event
             console.log('Processing start event:', data);
+            const startData = data as StartEventData;
             setProgress({
               currentIndex: 0,
-              totalCount: data.totalPermissionSets,
+              totalCount: startData.totalPermissionSets,
               permissionSetName: '',
-              message: data.message,
+              message: startData.message,
               currentStep: 'start',
               progress: 0
             });
           } else if (currentEventType === 'complete') {
             // Complete event - this is the key fix!
             console.log('Processing complete event:', data);
-            setSummary(data.summary);
+            const completeData = data as CompleteEventData;
+            setSummary(completeData.summary);
             setProgress(prev => prev ? {
               ...prev,
               currentIndex: prev.totalCount, // Set to total count to show completion
               permissionSetName: '', // Clear the current permission set name
-              message: data.message,
+              message: completeData.message,
               currentStep: 'complete',
               progress: 100
             } : null);
             setIsStreaming(false); // Set streaming to false immediately on completion
           } else if (currentEventType === 'result') {
             // Result event - permission set analysis complete
-            console.log('Processing result event:', data.permissionSet.userName);
-            setResults(prev => [...prev, data.permissionSet]);
+            const resultData = data as ResultEventData;
+            console.log('Processing result event:', resultData.permissionSet.userName);
+            setResults(prev => [...prev, resultData.permissionSet]);
             
             // Update progress using completedCount from API, but don't override complete state
             setProgress(prev => {
@@ -156,16 +189,16 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
               
               console.log('Updating progress from result event');
               const newProgress = {
-                currentIndex: data.completedCount,
-                totalCount: data.totalCount,
-                permissionSetName: data.permissionSet.userName,
-                message: data.message,
-                currentStep: data.currentStep || 'analyzing',
-                progress: data.progress || Math.round((data.completedCount / data.totalCount) * 100)
+                currentIndex: resultData.completedCount,
+                totalCount: resultData.totalCount,
+                permissionSetName: resultData.permissionSet.userName,
+                message: resultData.message,
+                currentStep: resultData.currentStep || 'analyzing',
+                progress: resultData.progress || Math.round((resultData.completedCount / resultData.totalCount) * 100)
               };
               
               // If we've reached 100%, force completion state
-              if (newProgress.progress >= 100 || data.completedCount >= data.totalCount) {
+              if (newProgress.progress >= 100 || resultData.completedCount >= resultData.totalCount) {
                 console.log('Forcing completion state due to 100% progress');
                 newProgress.currentStep = 'complete';
                 newProgress.permissionSetName = '';
@@ -178,13 +211,14 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
           } else if (currentEventType === 'progress') {
             // Progress event - analyzing specific permission set
             console.log('Processing progress event:', data);
+            const progressData = data as ProgressEventData;
             setProgress({
-              currentIndex: data.currentIndex,
-              totalCount: data.totalCount,
-              permissionSetName: data.permissionSetName || '',
-              message: data.message,
-              currentStep: data.currentStep || 'analyzing',
-              progress: data.progress || Math.round(((data.currentIndex) / data.totalCount) * 100)
+              currentIndex: progressData.currentIndex,
+              totalCount: progressData.totalCount,
+              permissionSetName: progressData.permissionSetName || '',
+              message: progressData.message,
+              currentStep: progressData.currentStep || 'analyzing',
+              progress: progressData.progress || Math.round(((progressData.currentIndex) / progressData.totalCount) * 100)
             });
           }
           

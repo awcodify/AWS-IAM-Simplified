@@ -14,7 +14,7 @@ export interface RiskFinding {
   resourceType: 'USER' | 'PERMISSION_SET' | 'POLICY' | 'ACCOUNT';
   resourceArn?: string;
   resourceName?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -32,7 +32,7 @@ export type RiskCategory =
 export interface PolicyAnalysisResult {
   policyArn?: string;
   policyName: string;
-  policyDocument: any;
+  policyDocument: Record<string, unknown> | null;
   findings: RiskFinding[];
   permissionsCount: number;
   wildcardActionsCount: number;
@@ -96,7 +96,19 @@ export interface RiskAnalysisOptions {
   includeUnusedPermissions?: boolean;
   includeLowRiskFindings?: boolean;
   checkCompliance?: boolean;
-  customRules?: CustomRiskRule[];
+  customRules?: Array<{
+    id: string;
+    name: string;
+    severity: number;
+    condition: (data: unknown) => boolean;
+  }>;
+}
+
+export interface RiskContext {
+  user?: unknown;
+  permissionSet?: unknown;
+  account?: unknown;
+  policies?: unknown[];
 }
 
 export interface CustomRiskRule {
@@ -105,7 +117,7 @@ export interface CustomRiskRule {
   description: string;
   riskLevel: RiskLevel;
   category: RiskCategory;
-  condition: (context: any) => boolean;
+  condition: (context: RiskContext) => boolean;
   recommendation: string;
 }
 

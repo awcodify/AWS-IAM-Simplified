@@ -1,18 +1,17 @@
 'use client';
 
-import { Building2, Users, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Building2, Users, Loader2, RefreshCw } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { AccountInfo, OrganizationUser, OrganizationAccount, PaginationInfo } from '@/types/aws';
 
 export default function OrganizationPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
+  const setAccountInfo = useState<AccountInfo | null>(null)[1]; // Available if needed
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [accounts, setAccounts] = useState<OrganizationAccount[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -36,7 +35,45 @@ export default function OrganizationPage() {
     if (result.success) {
       setAccountInfo(result.data);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awsRegion]);
+
+  const loadBulkAccessForUsers = useCallback(async (targetUsers: OrganizationUser[]) => {
+    if (targetUsers.length === 0) return;
+    
+    setLoadingBulkAccess(true);
+    
+    const userIds = targetUsers.map(user => user.user.UserId);
+    
+    const response = await fetch('/api/organization/users/bulk-access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userIds,
+        ssoRegion: encodeURIComponent(ssoRegion),
+        region: encodeURIComponent(awsRegion)
+      }),
+      cache: 'no-store'
+    });
+    
+    if (response) {
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update users' account access
+        setUsers(prevUsers => 
+          prevUsers.map(user => ({
+            ...user,
+            accountAccess: result.data[user.user.UserId] || []
+          }))
+        );
+      }
+    }
+    
+    setLoadingBulkAccess(false);
+  }, [ssoRegion, awsRegion]);
 
   const fetchData = useCallback(async (page: number = 1, search: string = '', isNewSearch: boolean = false) => {
     setLoading(true);
@@ -97,7 +134,7 @@ export default function OrganizationPage() {
     }
     
     setLoading(false);
-  }, [ssoRegion, awsRegion]);
+  }, [ssoRegion, awsRegion, isInitialLoad, loadBulkAccessForUsers]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -141,43 +178,6 @@ export default function OrganizationPage() {
     fetchData(currentPage, searchTerm, false);
   };
 
-  const loadBulkAccessForUsers = async (targetUsers: OrganizationUser[]) => {
-    if (targetUsers.length === 0) return;
-    
-    setLoadingBulkAccess(true);
-    
-    const userIds = targetUsers.map(user => user.user.UserId);
-    
-    const response = await fetch('/api/organization/users/bulk-access', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userIds,
-        ssoRegion: encodeURIComponent(ssoRegion),
-        region: encodeURIComponent(awsRegion)
-      }),
-      cache: 'no-store'
-    });
-    
-    if (response) {
-      const result = await response.json();
-      
-      if (result.success) {
-        // Update users' account access
-        setUsers(prevUsers => 
-          prevUsers.map(user => ({
-            ...user,
-            accountAccess: result.data[user.user.UserId] || []
-          }))
-        );
-      }
-    }
-    
-    setLoadingBulkAccess(false);
-  };
-
   // Automatically fetch data on mount and region changes
   useEffect(() => {
     checkAWSConnection();
@@ -196,7 +196,7 @@ export default function OrganizationPage() {
 
   if (isInitialLoad && loading) {
     return (
-      <PageLayout accountInfo={accountInfo}>
+      <PageLayout>
         <div className="bg-white shadow overflow-hidden rounded-lg">
           <PageHeader
             title="Organization Users"
@@ -216,7 +216,7 @@ export default function OrganizationPage() {
 
   if (error && isInitialLoad) {
     return (
-      <PageLayout accountInfo={accountInfo}>
+      <PageLayout>
         <ErrorDisplay
           title="Failed to Load Organization Data"
           message={error}
@@ -250,7 +250,7 @@ export default function OrganizationPage() {
   );
 
   return (
-    <PageLayout accountInfo={accountInfo}>
+    <PageLayout>
       <div className="space-y-6">
         {/* Page Header */}
         <PageHeader

@@ -1,21 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, Users, TrendingUp, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
+import { Shield, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import RiskDashboard from '@/components/RiskDashboard';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
 import { useStreamingRiskAnalysis } from '@/hooks/useStreamingRiskAnalysis';
-import type { OrganizationUser } from '@/types/aws';
-import type { UserRiskProfile } from '@/types/risk-analysis';
+import type { PermissionSetDetails } from '@/types/aws';
 
 export default function RiskAnalysisPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const [permissionSets, setPermissionSets] = useState<OrganizationUser[]>([]);
+  const [permissionSets, setPermissionSets] = useState<PermissionSetDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userDismissed, setUserDismissed] = useState(false);
@@ -57,7 +55,7 @@ export default function RiskAnalysisPage() {
       setError(err instanceof Error ? err.message : 'Failed to fetch permission sets');
       setLoading(false);
     });
-  }, [ssoRegion]);
+  }, [ssoRegion, awsRegion]);
 
   // Auto-start streaming risk analysis when permission sets are loaded
   useEffect(() => {

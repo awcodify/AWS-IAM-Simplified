@@ -4,15 +4,14 @@ import type {
   RiskCategory,
   PolicyAnalysisResult,
   UserRiskProfile,
-  PermissionSetRisk,
-  RiskAnalysisOptions
+  PermissionSetRisk
 } from '@/types/risk-analysis';
 import {
   SENSITIVE_ACTIONS,
   SENSITIVE_SERVICES,
   HIGH_PRIVILEGE_POLICIES
 } from '@/types/risk-analysis';
-import type { OrganizationUser, PermissionSetDetails, CrossAccountUserAccess } from '@/types/aws';
+import type { OrganizationUser, PermissionSetDetails } from '@/types/aws';
 
 export class IAMRiskAnalyzer {
   private generateFindingId(): string {
@@ -23,8 +22,7 @@ export class IAMRiskAnalyzer {
    * Analyze a user's risk profile across all their access
    */
   async analyzeUserRisk(
-    user: OrganizationUser,
-    options: RiskAnalysisOptions = {}
+    user: OrganizationUser
   ): Promise<UserRiskProfile> {
     const findings: RiskFinding[] = [];
     let overallRiskScore = 0;
@@ -154,7 +152,7 @@ export class IAMRiskAnalyzer {
    * Analyze risk for a specific permission set
    */
   async analyzePermissionSetRisk(
-    permissionSet: any,
+    permissionSet: PermissionSetDetails,
     accountId: string
   ): Promise<PermissionSetRisk> {
     const findings: RiskFinding[] = [];
@@ -249,7 +247,7 @@ export class IAMRiskAnalyzer {
     const findings: RiskFinding[] = [];
     let adminPermissions = false;
     let wildcardActionsCount = 0;
-    let crossAccountAccess = false;
+    const crossAccountAccess = false;
 
     // Extract policy name from ARN
     const policyName = policyArn.split('/').pop() || policyArn;
@@ -324,7 +322,6 @@ export class IAMRiskAnalyzer {
     const dataAccessPermissions: string[] = [];
     const servicePermissions: Record<string, string[]> = {};
 
-    let policy: any;
     const parseResult = await Promise.resolve(policyDocument)
       .then(doc => JSON.parse(doc))
       .then(parsed => ({ success: true, data: parsed }))
@@ -362,7 +359,7 @@ export class IAMRiskAnalyzer {
       };
     }
 
-    policy = 'data' in parseResult ? parseResult.data : null;
+    const policy = 'data' in parseResult ? parseResult.data : null;
 
     const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
     let totalPermissions = 0;
@@ -578,8 +575,7 @@ export class IAMRiskAnalyzer {
    * Analyze a permission set directly for risk assessment
    */
   async analyzePermissionSetDirectly(
-    permissionSet: any,
-    options: RiskAnalysisOptions = {}
+    permissionSet: PermissionSetDetails
   ): Promise<UserRiskProfile> {
     const findings: RiskFinding[] = [];
     let overallRiskScore = 0;

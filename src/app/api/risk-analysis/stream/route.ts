@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       const encoder = new TextEncoder();
       
-      const sendEvent = (type: string, data: any) => {
+      const sendEvent = (type: string, data: unknown) => {
         const message = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
         console.log(`Sending ${type} event:`, data);
         controller.enqueue(encoder.encode(message));

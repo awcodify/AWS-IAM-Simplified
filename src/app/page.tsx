@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
-import PageHeader from '@/components/PageHeader';
 import { useRegion } from '@/contexts/RegionContext';
 import { useState, useEffect, useCallback } from 'react';
 import { 
@@ -63,39 +62,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchMetrics();
   }, [fetchMetrics]);
-
-  const primaryFeatures = [
-    {
-      title: 'Organization View',
-      description: 'Comprehensive view of all users across your AWS organization with real-time access analysis.',
-      icon: Building2,
-      href: '/organization',
-      color: 'from-emerald-500 to-emerald-600',
-      bgColor: 'bg-emerald-50',
-      iconColor: 'text-emerald-600',
-      stats: metrics.loading ? 'Loading...' : `${metrics.totalUsers} users`
-    },
-    {
-      title: 'Permission Sets',
-      description: 'Browse, analyze, and manage AWS SSO permission sets with detailed policy breakdowns.',
-      icon: Shield,
-      href: '/permission-sets',
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'bg-blue-50',
-      iconColor: 'text-blue-600',
-      stats: metrics.loading ? 'Loading...' : `${metrics.totalPermissionSets} permission sets`
-    },
-    {
-      title: 'Risk Analysis',
-      description: 'AI-powered security analysis to identify risks, compliance violations, and optimization opportunities.',
-      icon: AlertTriangle,
-      href: '/risk-analysis',
-      color: 'from-red-500 to-red-600',
-      bgColor: 'bg-red-50',
-      iconColor: 'text-red-600',
-      stats: metrics.loading ? 'Loading...' : 'Security insights'
-    }
-  ];
 
   return (
     <PageLayout>
@@ -175,7 +141,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Your AWS Environment at a Glance</h2>
-            <p className="text-gray-600 text-lg">Real-time insights into your organization's IAM landscape</p>
+            <p className="text-gray-600 text-lg">Real-time insights into your organization&apos;s IAM landscape</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

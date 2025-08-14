@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Shield, Loader2, Search, Users, FileText, Clock } from 'lucide-react';
+import { Shield, Loader2, Search, FileText } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';

@@ -601,7 +601,8 @@ export class AWSService {
           );
         });
         
-        const permissionSetNamesResult = await Promise.all(namePromises).then(
+        // Diagnostic logging for permission set names
+        await Promise.all(namePromises).then( 
           results => {
             console.log('Sample permission set names:', results);
             return true;
