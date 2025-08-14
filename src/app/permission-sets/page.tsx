@@ -7,6 +7,7 @@ import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
+import { usePermissionSets } from '@/hooks/usePermissionSets';
 
 interface PermissionSet {
   arn: string;
@@ -16,43 +17,8 @@ interface PermissionSet {
 
 export default function PermissionSetsPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const [permissionSets, setPermissionSets] = useState<PermissionSet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { permissionSets, loading, error } = usePermissionSets();
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    const fetchPermissionSets = async () => {
-      if (!awsRegion || !ssoRegion) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams({
-        region: awsRegion,
-        ssoRegion: ssoRegion
-      });
-
-      const response = await fetch(`/api/permission-sets?${params}`, {
-        cache: 'force-cache'
-      });
-      const result = await response.json();
-
-      if (!result.success) {
-        setError(result.error || 'Failed to fetch permission sets');
-        setLoading(false);
-        return;
-      }
-
-      setPermissionSets(result.data);
-      setLoading(false);
-    };
-
-    fetchPermissionSets();
-  }, [awsRegion, ssoRegion]);
 
   const filteredPermissionSets = permissionSets.filter(ps =>
     ps.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

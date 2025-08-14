@@ -6,14 +6,16 @@ import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
+import { useAccountInfo } from '@/hooks/useAccountInfo';
+import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AccountInfo, OrganizationUser, OrganizationAccount, PaginationInfo } from '@/types/aws';
+import type { OrganizationUser, PaginationInfo } from '@/types/aws';
 
 export default function OrganizationPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const setAccountInfo = useState<AccountInfo | null>(null)[1]; // Available if needed
+  const { accountInfo } = useAccountInfo();
+  const { accounts } = useOrganizationAccounts();
   const [users, setUsers] = useState<OrganizationUser[]>([]);
-  const [accounts, setAccounts] = useState<OrganizationAccount[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,18 +27,6 @@ export default function OrganizationPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const checkAWSConnection = useCallback(async () => {
-    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
-      cache: 'force-cache'
-    });
-    const result = await response.json();
-    
-    if (result.success) {
-      setAccountInfo(result.data);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [awsRegion]);
 
   const loadBulkAccessForUsers = useCallback(async (targetUsers: OrganizationUser[]) => {
     if (targetUsers.length === 0) return;
@@ -87,49 +77,24 @@ export default function OrganizationPage() {
     
     setSelectedUser(null);
 
-    // Fetch accounts and users in parallel
-    const accountsPromise = fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`, {
-      cache: 'force-cache'
-    });
-    
+    // Fetch users only (accounts are now handled by useOrganizationAccounts hook)
     const usersUrl = `/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=${page}&limit=10${search ? `&search=${encodeURIComponent(search)}` : ''}`;
-    const usersPromise = fetch(usersUrl, {
+    const usersResponse = await fetch(usersUrl, {
       cache: 'force-cache'
     });
     
-    const results = await Promise.all([accountsPromise, usersPromise])
-      .then(async ([accountsResponse, usersResponse]) => {
-        const accountsData = await accountsResponse.json();
-        const usersData = await usersResponse.json();
-
-        if (!accountsData.success) {
-          return { error: accountsData.error || 'Failed to fetch organization accounts' };
-        }
-
-        if (!usersData.success) {
-          return { error: usersData.error || 'Failed to fetch organization users' };
-        }
-
-        return {
-          accounts: accountsData.data || [],
-          users: usersData.data || [],
-          pagination: usersData.pagination || null
-        };
-      }, error => {
-        return { error: `Failed to fetch data: ${error instanceof Error ? error.message : 'Unknown error'}` };
-      });
-
-    if ('error' in results) {
-      setError(results.error);
+    const usersData = await usersResponse.json();
+    
+    if (!usersData.success) {
+      setError(usersData.error || 'Failed to fetch organization users');
     } else {
-      setAccounts(results.accounts);
-      setUsers(results.users);
-      setPagination(results.pagination);
+      setUsers(usersData.data || []);
+      setPagination(usersData.pagination || null);
       setIsInitialLoad(false);
 
       // Automatically load all users' access data if users were fetched
-      if (results.users.length > 0) {
-        loadBulkAccessForUsers(results.users);
+      if (usersData.data && usersData.data.length > 0) {
+        loadBulkAccessForUsers(usersData.data);
       }
     }
     
@@ -180,7 +145,6 @@ export default function OrganizationPage() {
 
   // Automatically fetch data on mount and region changes
   useEffect(() => {
-    checkAWSConnection();
     fetchData(1, '', true);
     
     // Cleanup function to clear timeouts
@@ -192,7 +156,7 @@ export default function OrganizationPage() {
         clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [checkAWSConnection, fetchData]);
+  }, [fetchData]);
 
   if (isInitialLoad && loading) {
     return (

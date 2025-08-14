@@ -9,14 +9,13 @@ import RiskDashboard from '@/components/RiskDashboard';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
 import { useStreamingRiskAnalysis } from '@/hooks/useStreamingRiskAnalysis';
-import type { PermissionSetDetails } from '@/types/aws';
+import { usePermissionSets } from '@/hooks/usePermissionSets';
 
 export default function RiskAnalysisPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const [permissionSets, setPermissionSets] = useState<PermissionSetDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { permissionSets, loading, error: permissionSetsError } = usePermissionSets();
   const [userDismissed, setUserDismissed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Use the streaming hook
   const {
@@ -29,34 +28,6 @@ export default function RiskAnalysisPage() {
     resetResults
   } = useStreamingRiskAnalysis();
 
-  // Fetch permission sets for analysis
-  useEffect(() => {
-    const fetchPermissionSets = async () => {
-      setLoading(true);
-      setError(null);
-
-      // Fetch permission sets directly instead of users
-      const response = await fetch(`/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`, {
-        cache: 'force-cache'
-      });
-      
-      if (!response.ok) {
-        setError(`Failed to fetch permission sets: ${response.statusText}`);
-        setLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-      setPermissionSets(data.data || []); // API returns permission sets in data.data
-      setLoading(false);
-    };
-
-    fetchPermissionSets().catch(err => {
-      setError(err instanceof Error ? err.message : 'Failed to fetch permission sets');
-      setLoading(false);
-    });
-  }, [ssoRegion, awsRegion]);
-
   // Auto-start streaming risk analysis when permission sets are loaded
   useEffect(() => {
     if (permissionSets.length > 0 && userRiskProfiles.length === 0 && !isStreaming && !userDismissed) {
@@ -66,12 +37,14 @@ export default function RiskAnalysisPage() {
     }
   }, [permissionSets, userRiskProfiles.length, isStreaming, startStreaming, awsRegion, ssoRegion, userDismissed]);
 
-  // Handle streaming error
+  // Handle streaming error or permission sets error
   useEffect(() => {
     if (streamingError) {
       setError(streamingError);
+    } else if (permissionSetsError) {
+      setError(permissionSetsError);
     }
-  }, [streamingError]);
+  }, [streamingError, permissionSetsError]);
 
   // Debug effect to log results changes
   useEffect(() => {

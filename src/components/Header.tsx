@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Building2, ChevronDown, CheckCircle2, Globe, User } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
-import type { AccountInfo } from '@/types/aws';
+import { useAccountInfo } from '@/hooks/useAccountInfo';
 
 // Header component with no external props needed
 // Available for header customization if needed
@@ -39,25 +39,9 @@ const AWS_REGIONS: RegionOption[] = [
 
 export default function Header() {
   const { awsRegion, ssoRegion, setAwsRegion } = useRegion();
-  const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
+  const { accountInfo } = useAccountInfo();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const checkAWSConnection = useCallback(async () => {
-    const response = await fetch(`/api/account?region=${encodeURIComponent(awsRegion)}`, {
-      cache: 'force-cache'
-    });
-    const result = await response.json();
-    
-    if (result.success) {
-      setAccountInfo(result.data);
-    }
-  }, [awsRegion]);
-
-  // Check AWS connection when component mounts or region changes
-  useEffect(() => {
-    checkAWSConnection();
-  }, [checkAWSConnection]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

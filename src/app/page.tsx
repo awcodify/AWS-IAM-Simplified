@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import { useRegion } from '@/contexts/RegionContext';
+import { usePermissionSets } from '@/hooks/usePermissionSets';
+import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Building2, 
@@ -17,6 +19,8 @@ import {
 
 export default function Dashboard() {
   const { awsRegion, ssoRegion } = useRegion();
+  const { permissionSets } = usePermissionSets();
+  const { accounts } = useOrganizationAccounts();
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
     totalPermissionSets: 0,
@@ -32,32 +36,20 @@ export default function Dashboard() {
     
     setMetrics(prev => ({ ...prev, loading: true }));
     
-    // Fetch users, permission sets, and accounts in parallel
-    const [usersResponse, permissionSetsResponse, accountsResponse] = await Promise.all([
-      fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=1&limit=1&ssoOnly=false`, {
-        cache: 'no-store'
-      }),
-      fetch(`/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`, {
-        cache: 'no-store'
-      }),
-      fetch(`/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`, {
-        cache: 'no-store'
-      })
-    ]);
+    // Only fetch users count (permission sets and accounts come from hooks)
+    const usersResponse = await fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=1&limit=1&ssoOnly=false`, {
+      cache: 'no-store'
+    });
 
-    const [usersData, permissionSetsData, accountsData] = await Promise.all([
-      usersResponse.json(),
-      permissionSetsResponse.json(),
-      accountsResponse.json()
-    ]);
+    const usersData = await usersResponse.json();
 
     setMetrics({
       totalUsers: usersData.success ? (usersData.pagination?.totalUsers || usersData.data?.length || 0) : 0,
-      totalPermissionSets: permissionSetsData.success ? (permissionSetsData.data?.length || 0) : 0,
-      totalAccounts: accountsData.success ? (accountsData.data?.length || 0) : 0,
+      totalPermissionSets: permissionSets.length,
+      totalAccounts: accounts.length,
       loading: false
     });
-  }, [awsRegion, ssoRegion]);
+  }, [awsRegion, ssoRegion, permissionSets.length, accounts.length]);
 
   useEffect(() => {
     fetchMetrics();
