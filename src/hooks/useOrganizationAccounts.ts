@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRegion } from '@/contexts/RegionContext';
+import { createAuthHeaders } from '@/lib/credentials';
 import type { OrganizationAccount } from '@/types/aws';
 
 // Shared cache for organization accounts
@@ -27,7 +28,8 @@ export function useOrganizationAccounts() {
 
     // Create new fetch promise
     const promise = fetch(`/api/organization/accounts?region=${encodeURIComponent(region)}`, {
-      cache: 'force-cache'
+      cache: 'force-cache',
+      headers: createAuthHeaders()
     })
       .then(async (response) => {
         const result = await response.json();

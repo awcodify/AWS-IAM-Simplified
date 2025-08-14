@@ -50,35 +50,21 @@ export class AWSService {
   private identityStoreClient: IdentitystoreClient;
   private region: string;
 
-  constructor(region = 'us-east-1') {
-    // Use the default credential provider chain which handles:
-    // 1. Environment variables
-    // 2. AWS profiles (including SSO)
-    // 3. Instance metadata (for EC2)
-    // 4. Container credentials (for ECS/Fargate)
-    
+  constructor(region = 'us-east-1', credentials?: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
+  }) {
     this.region = region;
     console.log(`Using AWS region: ${region}`);
     
-    this.iamClient = new IAMClient({ 
-      region
-    });
+    const clientConfig = credentials ? { region, credentials } : { region };
     
-    this.stsClient = new STSClient({ 
-      region
-    });
-
-    this.organizationsClient = new OrganizationsClient({
-      region
-    });
-
-    this.ssoAdminClient = new SSOAdminClient({
-      region
-    });
-
-    this.identityStoreClient = new IdentitystoreClient({
-      region
-    });
+    this.iamClient = new IAMClient(clientConfig);
+    this.stsClient = new STSClient(clientConfig);
+    this.organizationsClient = new OrganizationsClient(clientConfig);
+    this.ssoAdminClient = new SSOAdminClient(clientConfig);
+    this.identityStoreClient = new IdentitystoreClient(clientConfig);
   }
 
   /**

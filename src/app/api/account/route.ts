@@ -1,14 +1,31 @@
 import { NextResponse } from 'next/server';
 import { AWSService } from '@/lib/aws-service';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 
-export async function GET() {
-  console.log('Environment AWS_PROFILE:', process.env.AWS_PROFILE);
+export async function GET(request: Request) {
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not provided'
+    }, { status: 401 });
+  }
   
-  const awsService = new AWSService();
-  const accountInfo = await awsService.getAccountInfo();
+  const awsService = new AWSService('us-east-1', credentials);
   
-  return NextResponse.json({
-    success: true,
-    data: accountInfo
-  });
+  try {
+    const accountInfo = await awsService.getAccountInfo();
+    
+    return NextResponse.json({
+      success: true,
+      data: accountInfo
+    });
+  } catch (error) {
+    console.error('Error getting account info:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to get account information'
+    }, { status: 500 });
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRegion } from '@/contexts/RegionContext';
+import { createAuthHeaders } from '@/lib/credentials';
 import type { PermissionSetDetails } from '@/types/aws';
 
 // Shared cache for permission sets
@@ -29,7 +30,8 @@ export function usePermissionSets() {
 
     // Create new fetch promise
     const promise = fetch(`/api/permission-sets?region=${encodeURIComponent(region)}&ssoRegion=${encodeURIComponent(ssoRegionParam)}`, {
-      cache: 'force-cache'
+      cache: 'force-cache',
+      headers: createAuthHeaders()
     })
       .then(async (response) => {
         const result = await response.json();

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AWSService } from '@/lib/aws-service';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { OrganizationUsersResponse } from '@/types/aws';
 
 export async function GET(request: Request): Promise<NextResponse<OrganizationUsersResponse>> {
@@ -11,7 +12,16 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
   const search = searchParams.get('search') || '';
   const ssoOnly = searchParams.get('ssoOnly') === 'true'; // New parameter to skip IAM users
   
-  const awsService = new AWSService(region);
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not provided'
+    }, { status: 401 });
+  }
+  
+  const awsService = new AWSService(region, credentials);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(

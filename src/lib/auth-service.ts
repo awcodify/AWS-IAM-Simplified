@@ -3,6 +3,7 @@
  */
 import { SessionInfo, AccessKeyAuthRequest } from '@/types/auth';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
+import { storeCredentials, clearStoredCredentials } from './credentials';
 
 export class AuthService {
   private static readonly SESSION_KEY = 'aws-iam-dashboard-session';
@@ -56,6 +57,7 @@ export class AuthService {
   static clearSession(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(this.SESSION_KEY);
+    clearStoredCredentials();
   }
 
   /**
@@ -127,7 +129,13 @@ export class AuthService {
       expiresAt: new Date(Date.now() + this.SESSION_TIMEOUT)
     };
 
+    // Store both session and credentials
     this.saveSession(session);
+    storeCredentials({
+      accessKeyId,
+      secretAccessKey,
+      sessionToken
+    });
     return session;
   }
 

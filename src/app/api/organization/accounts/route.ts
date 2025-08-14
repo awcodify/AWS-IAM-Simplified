@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
 import { AWSService } from '@/lib/aws-service';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { OrganizationAccountsResponse } from '@/types/aws';
 
 export async function GET(request: Request): Promise<NextResponse<OrganizationAccountsResponse>> {
   const { searchParams } = new URL(request.url);
   const region = searchParams.get('region') || 'us-east-1';
   
-  const awsService = new AWSService(region);
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not provided'
+    }, { status: 401 });
+  }
+  
+  const awsService = new AWSService(region, credentials);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(
