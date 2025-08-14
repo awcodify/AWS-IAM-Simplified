@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Shield, Loader2, Search, FileText } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import { useRegion } from '@/contexts/RegionContext';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
 
 interface PermissionSet {
@@ -16,7 +15,6 @@ interface PermissionSet {
 }
 
 export default function PermissionSetsPage() {
-  const { awsRegion, ssoRegion } = useRegion();
   const { permissionSets, loading, error } = usePermissionSets();
   const [searchTerm, setSearchTerm] = useState('');
 

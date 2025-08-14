@@ -1,7 +1,7 @@
 /**
  * Authentication service for managing AWS credentials and sessions
  */
-import { SessionInfo, AWSCredentials, AccessKeyAuthRequest, ProfileAuthRequest } from '@/types/auth';
+import { SessionInfo, AccessKeyAuthRequest } from '@/types/auth';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 
 export class AuthService {
@@ -27,7 +27,7 @@ export class AuthService {
       }
 
       return session;
-    } catch (error) {
+    } catch {
       this.clearSession();
       return null;
     }
@@ -45,7 +45,7 @@ export class AuthService {
         lastActivity: new Date().toISOString(),
         expiresAt: session.expiresAt || new Date(Date.now() + this.SESSION_TIMEOUT).toISOString()
       }));
-    } catch (error) {
+    } catch {
       // Silently fail if localStorage is not available
     }
   }
@@ -135,7 +135,7 @@ export class AuthService {
    * Authenticate using AWS CLI profile
    * Note: Profile-based authentication is not supported in browser environments
    */
-  static async authenticateWithProfile(request: ProfileAuthRequest): Promise<SessionInfo | null> {
+  static async authenticateWithProfile(): Promise<SessionInfo | null> {
     return null;
   }
 

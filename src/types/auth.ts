@@ -38,6 +38,20 @@ export interface AuthenticationState {
   error: string | null;
 }
 
+export interface AccessKeysLoginData {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+  region: string;
+}
+
+export interface ProfileLoginData {
+  profileName: string;
+  region?: string;
+}
+
+export type LoginData = AccessKeysLoginData | ProfileLoginData;
+
 export interface SSOAuthRequest {
   startUrl: string;
   region: string;

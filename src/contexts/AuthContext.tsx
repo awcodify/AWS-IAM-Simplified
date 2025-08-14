@@ -4,11 +4,11 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { AuthenticationState, SessionInfo } from '@/types/auth';
+import { AuthenticationState, SessionInfo, AccessKeysLoginData, ProfileLoginData } from '@/types/auth';
 import { AuthService } from '@/lib/auth-service';
 
 interface AuthContextType extends AuthenticationState {
-  login: (method: 'access-keys' | 'profile', data: any) => Promise<void>;
+  login: (method: 'access-keys' | 'profile', data: AccessKeysLoginData | ProfileLoginData) => Promise<void>;
   logout: () => void;
   refreshSession: () => Promise<void>;
 }
@@ -46,18 +46,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (method: 'access-keys' | 'profile', data: any) => {
+  const login = async (method: 'access-keys' | 'profile', data: AccessKeysLoginData | ProfileLoginData) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      let session: SessionInfo;
+      let session: SessionInfo | null;
 
       if (method === 'access-keys') {
-        session = await AuthService.authenticateWithAccessKeys(data);
+        session = await AuthService.authenticateWithAccessKeys(data as AccessKeysLoginData);
       } else if (method === 'profile') {
-        session = await AuthService.authenticateWithProfile(data);
+        session = await AuthService.authenticateWithProfile();
       } else {
         throw new Error('Unsupported authentication method');
+      }
+
+      if (!session) {
+        throw new Error('Authentication failed');
       }
 
       setState({

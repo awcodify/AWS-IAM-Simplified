@@ -52,7 +52,7 @@ export default function SettingsPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as 'account' | 'regions' | 'about')}
                     className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
                       activeTab === tab.id
                         ? 'border-red-500 text-red-600'
@@ -220,7 +220,7 @@ export default function SettingsPage() {
                       <h4 className="text-sm font-medium text-yellow-800">Important</h4>
                       <p className="mt-1 text-sm text-yellow-700">
                         The IAM Identity Center region should match where your SSO instance is configured. 
-                        This typically doesn't change once set up.
+                        This typically doesn&apos;t change once set up.
                       </p>
                     </div>
                   </div>

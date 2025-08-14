@@ -6,14 +6,12 @@ import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
-import { useAccountInfo } from '@/hooks/useAccountInfo';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { OrganizationUser, PaginationInfo } from '@/types/aws';
 
 export default function OrganizationPage() {
   const { awsRegion, ssoRegion } = useRegion();
-  const { accountInfo } = useAccountInfo();
   const { accounts } = useOrganizationAccounts();
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
