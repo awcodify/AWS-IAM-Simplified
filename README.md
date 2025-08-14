@@ -1,4 +1,4 @@
-# AWS IAM Dashboard
+# AWS IAM Simplified
 
 A simplified web dashboard for AWS IAM management that helps you easily understand what resources users can access across AWS accounts in your organization.
 
