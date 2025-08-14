@@ -25,17 +25,28 @@ export default function RiskAnalysisPage() {
     isStreaming,
     error: streamingError,
     startStreaming,
-    resetResults
+    resetResults,
+    canStartNewScan
   } = useStreamingRiskAnalysis();
 
   // Auto-start streaming risk analysis when permission sets are loaded
   useEffect(() => {
-    if (permissionSets.length > 0 && userRiskProfiles.length === 0 && !isStreaming && !userDismissed) {
-      startStreaming(permissionSets, awsRegion, ssoRegion).catch(err => {
-        setError(err instanceof Error ? err.message : 'Risk analysis failed');
-      });
+    // Only start if:
+    // 1. We have permission sets
+    // 2. User hasn't dismissed the scan
+    // 3. We can start a new scan (no duplicate running)
+    if (permissionSets.length > 0 && !userDismissed && canStartNewScan(permissionSets, awsRegion, ssoRegion)) {
+      // Only start if no results exist yet or if the scan is not currently running
+      if (userRiskProfiles.length === 0 && !isStreaming) {
+        console.log('Starting new risk analysis scan...');
+        startStreaming(permissionSets, awsRegion, ssoRegion).catch(err => {
+          setError(err instanceof Error ? err.message : 'Risk analysis failed');
+        });
+      }
+    } else if (permissionSets.length > 0 && !canStartNewScan(permissionSets, awsRegion, ssoRegion)) {
+      console.log('Scan already running with same parameters, using existing session');
     }
-  }, [permissionSets, userRiskProfiles.length, isStreaming, startStreaming, awsRegion, ssoRegion, userDismissed]);
+  }, [permissionSets, userDismissed, canStartNewScan, userRiskProfiles.length, isStreaming, startStreaming, awsRegion, ssoRegion]);
 
   // Handle streaming error or permission sets error
   useEffect(() => {
@@ -56,6 +67,7 @@ export default function RiskAnalysisPage() {
     setUserDismissed(false); // Reset dismissed flag when retrying
     resetResults();
     if (permissionSets.length > 0) {
+      console.log('Retrying risk analysis scan...');
       startStreaming(permissionSets, awsRegion, ssoRegion).catch(err => {
         setError(err instanceof Error ? err.message : 'Risk analysis failed');
       });
@@ -109,6 +121,23 @@ export default function RiskAnalysisPage() {
           icon={<Shield className="h-12 w-12 text-red-600" />}
           rightText={`Last analyzed: ${new Date().toLocaleString()}`}
         />
+
+        {/* Reconnection Notification */}
+        {!canStartNewScan(permissionSets, awsRegion, ssoRegion) && isStreaming && (
+          <div className="p-4 bg-blue-50 border-l-4 border-blue-400">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-blue-700">
+                  <strong>Reconnected to ongoing scan:</strong> You navigated back to a risk analysis that was already in progress. 
+                  The scan will continue from where it left off.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

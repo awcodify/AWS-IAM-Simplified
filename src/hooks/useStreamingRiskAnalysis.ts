@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { PermissionSetDetails } from '@/types/aws';
+import ScanSessionManager from '@/lib/scan-session-manager';
 
 // Event data interfaces
 interface StartEventData {
@@ -57,6 +58,7 @@ interface UseStreamingRiskAnalysisResult {
   error: string | null;
   startStreaming: (permissionSets: PermissionSetDetails[], region: string, ssoRegion: string) => Promise<void>;
   resetResults: () => void;
+  canStartNewScan: (permissionSets: PermissionSetDetails[], region: string, ssoRegion: string) => boolean;
 }
 
 export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
@@ -65,130 +67,147 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
   const [summary, setSummary] = useState<StreamingSummary | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionManager] = useState(() => ScanSessionManager.getInstance());
+
+  // Subscribe to session manager updates
+  useEffect(() => {
+    const unsubscribe = sessionManager.subscribe((session) => {
+      if (session) {
+        setResults(session.results);
+        setProgress(session.progress);
+        setSummary(session.summary);
+        setError(session.error);
+        setIsStreaming(session.isActive);
+      } else {
+        setResults([]);
+        setProgress(null);
+        setSummary(null);
+        setError(null);
+        setIsStreaming(false);
+      }
+    });
+
+    return unsubscribe;
+  }, [sessionManager]);
+
+  const canStartNewScan = useCallback((permissionSets: PermissionSetDetails[], region: string, ssoRegion: string) => {
+    return sessionManager.canStartNewScan(permissionSets, region, ssoRegion);
+  }, [sessionManager]);
 
   const startStreaming = useCallback(async (
     permissionSets: PermissionSetDetails[],
     region: string,
     ssoRegion: string
   ) => {
-    setIsStreaming(true);
-    setError(null);
-    setResults([]);
-    setProgress(null);
-    setSummary(null);
-
-    const response = await fetch('/api/risk-analysis/stream', {
-      cache: 'force-cache',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        permissionSets,
-        region,
-        ssoRegion
-      }),
-    }).catch(err => {
-      setError(err instanceof Error ? err.message : 'Failed to start streaming');
-      setIsStreaming(false);
-      throw err;
-    });
-
-    if (!response.ok) {
-      setError(`Failed to start risk analysis: ${response.statusText}`);
-      setIsStreaming(false);
+    // Check if we can start a new scan
+    if (!sessionManager.canStartNewScan(permissionSets, region, ssoRegion)) {
+      console.log('Scan already in progress with same parameters, connecting to existing scan');
       return;
     }
 
-    if (!response.body) {
-      setError('No response body received');
-      setIsStreaming(false);
-      return;
-    }
+    // Start new scan session
+    const sessionId = sessionManager.startNewScan(permissionSets, region, ssoRegion);
+    console.log('Started new scan session:', sessionId);
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read().catch(err => {
-        setError(err instanceof Error ? err.message : 'Stream reading failed');
-        return { done: true, value: undefined };
+    try {
+      const response = await fetch('/api/risk-analysis/stream', {
+        cache: 'force-cache',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          permissionSets,
+          region,
+          ssoRegion,
+          sessionId // Include session ID for tracking
+        }),
       });
 
-      if (done) {
-        setIsStreaming(false);
-        break;
+      if (!response.ok) {
+        throw new Error(`Failed to start risk analysis: ${response.statusText}`);
       }
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+      if (!response.body) {
+        throw new Error('No response body received');
+      }
 
-      let currentEventType = '';
-      
-      for (const line of lines) {
-        if (line.startsWith('event:')) {
-          // Event type line - store it for the next data line
-          currentEventType = line.substring(6).trim();
-          console.log('Event type:', currentEventType);
-        } else if (line.startsWith('data:')) {
-          // Data line - process using the stored event type
-          const eventData = line.substring(5).trim();
-          if (!eventData) continue;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-          let data: unknown;
-          try {
-            data = JSON.parse(eventData);
-          } catch {
-            console.warn('Failed to parse event data:', eventData);
-            continue;
-          }
+      while (true) {
+        const { done, value } = await reader.read().catch(err => {
+          throw new Error(err instanceof Error ? err.message : 'Stream reading failed');
+        });
 
-          console.log('Received event data:', data);
-          console.log('Event type for this data:', currentEventType);
+        if (done) {
+          sessionManager.completeScan();
+          break;
+        }
 
-          // Handle different event types based on the actual event type
-          if (currentEventType === 'start') {
-            // Start event
-            console.log('Processing start event:', data);
-            const startData = data as StartEventData;
-            setProgress({
-              currentIndex: 0,
-              totalCount: startData.totalPermissionSets,
-              permissionSetName: '',
-              message: startData.message,
-              currentStep: 'start',
-              progress: 0
-            });
-          } else if (currentEventType === 'complete') {
-            // Complete event - this is the key fix!
-            console.log('Processing complete event:', data);
-            const completeData = data as CompleteEventData;
-            setSummary(completeData.summary);
-            setProgress(prev => prev ? {
-              ...prev,
-              currentIndex: prev.totalCount, // Set to total count to show completion
-              permissionSetName: '', // Clear the current permission set name
-              message: completeData.message,
-              currentStep: 'complete',
-              progress: 100
-            } : null);
-            setIsStreaming(false); // Set streaming to false immediately on completion
-          } else if (currentEventType === 'result') {
-            // Result event - permission set analysis complete
-            const resultData = data as ResultEventData;
-            console.log('Processing result event:', resultData.permissionSet.userName);
-            setResults(prev => [...prev, resultData.permissionSet]);
-            
-            // Update progress using completedCount from API, but don't override complete state
-            setProgress(prev => {
-              // If we're already complete, don't update
-              if (prev?.currentStep === 'complete') {
-                console.log('Skipping result event update - already complete');
-                return prev;
-              }
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        let currentEventType = '';
+        
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            // Event type line - store it for the next data line
+            currentEventType = line.substring(6).trim();
+            console.log('Event type:', currentEventType);
+          } else if (line.startsWith('data:')) {
+            // Data line - process using the stored event type
+            const eventData = line.substring(5).trim();
+            if (!eventData) continue;
+
+            let data: unknown;
+            try {
+              data = JSON.parse(eventData);
+            } catch {
+              console.warn('Failed to parse event data:', eventData);
+              continue;
+            }
+
+            console.log('Received event data:', data);
+            console.log('Event type for this data:', currentEventType);
+
+            // Handle different event types based on the actual event type
+            if (currentEventType === 'start') {
+              // Start event
+              console.log('Processing start event:', data);
+              const startData = data as StartEventData;
+              const progressData = {
+                currentIndex: 0,
+                totalCount: startData.totalPermissionSets,
+                permissionSetName: '',
+                message: startData.message,
+                currentStep: 'start',
+                progress: 0
+              };
+              sessionManager.updateProgress(progressData);
+            } else if (currentEventType === 'complete') {
+              // Complete event
+              console.log('Processing complete event:', data);
+              const completeData = data as CompleteEventData;
+              sessionManager.setSummary(completeData.summary);
+              const progressData = {
+                currentIndex: sessionManager.getScanProgress()?.totalCount || 0,
+                totalCount: sessionManager.getScanProgress()?.totalCount || 0,
+                permissionSetName: '',
+                message: completeData.message,
+                currentStep: 'complete',
+                progress: 100
+              };
+              sessionManager.updateProgress(progressData);
+              sessionManager.completeScan();
+            } else if (currentEventType === 'result') {
+              // Result event - permission set analysis complete
+              const resultData = data as ResultEventData;
+              console.log('Processing result event:', resultData.permissionSet.userName);
+              sessionManager.addResult(resultData.permissionSet);
               
-              console.log('Updating progress from result event');
-              const newProgress = {
+              // Update progress
+              const progressData = {
                 currentIndex: resultData.completedCount,
                 totalCount: resultData.totalCount,
                 permissionSetName: resultData.permissionSet.userName,
@@ -198,44 +217,46 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
               };
               
               // If we've reached 100%, force completion state
-              if (newProgress.progress >= 100 || resultData.completedCount >= resultData.totalCount) {
+              if (progressData.progress >= 100 || resultData.completedCount >= resultData.totalCount) {
                 console.log('Forcing completion state due to 100% progress');
-                newProgress.currentStep = 'complete';
-                newProgress.permissionSetName = '';
-                newProgress.message = 'Risk analysis complete!';
-                setIsStreaming(false);
+                progressData.currentStep = 'complete';
+                progressData.permissionSetName = '';
+                progressData.message = 'Risk analysis complete!';
+                sessionManager.completeScan();
               }
               
-              return newProgress;
-            });
-          } else if (currentEventType === 'progress') {
-            // Progress event - analyzing specific permission set
-            console.log('Processing progress event:', data);
-            const progressData = data as ProgressEventData;
-            setProgress({
-              currentIndex: progressData.currentIndex,
-              totalCount: progressData.totalCount,
-              permissionSetName: progressData.permissionSetName || '',
-              message: progressData.message,
-              currentStep: progressData.currentStep || 'analyzing',
-              progress: progressData.progress || Math.round(((progressData.currentIndex) / progressData.totalCount) * 100)
-            });
+              sessionManager.updateProgress(progressData);
+            } else if (currentEventType === 'progress') {
+              // Progress event - analyzing specific permission set
+              console.log('Processing progress event:', data);
+              const progressData = data as ProgressEventData;
+              const updateData = {
+                currentIndex: progressData.currentIndex,
+                totalCount: progressData.totalCount,
+                permissionSetName: progressData.permissionSetName || '',
+                message: progressData.message,
+                currentStep: progressData.currentStep || 'analyzing',
+                progress: progressData.progress || Math.round(((progressData.currentIndex) / progressData.totalCount) * 100)
+              };
+              sessionManager.updateProgress(updateData);
+            }
+            
+            // Reset event type after processing
+            currentEventType = '';
           }
-          
-          // Reset event type after processing
-          currentEventType = '';
         }
       }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start streaming';
+      console.error('Streaming error:', errorMessage);
+      sessionManager.setError(errorMessage);
+      throw err;
     }
-  }, []);
+  }, [sessionManager]);
 
   const resetResults = useCallback(() => {
-    setResults([]);
-    setProgress(null);
-    setSummary(null);
-    setError(null);
-    setIsStreaming(false);
-  }, []);
+    sessionManager.resetScan();
+  }, [sessionManager]);
 
   return {
     results,
@@ -244,6 +265,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
     isStreaming,
     error,
     startStreaming,
-    resetResults
+    resetResults,
+    canStartNewScan
   };
 }
