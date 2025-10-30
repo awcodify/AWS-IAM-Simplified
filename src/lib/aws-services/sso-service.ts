@@ -219,7 +219,6 @@ export class SSOService {
         accountName: account.name,
         hasAccess: false,
         accessType: 'SSO' as const,
-        roles: [],
         lastChecked: new Date()
       })));
     });
