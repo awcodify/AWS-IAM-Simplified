@@ -21,24 +21,22 @@ export class AccountService {
     console.log('Attempting to get caller identity...');
     const command = new GetCallerIdentityCommand({});
     
-    return safeAsync(this.stsClient.send(command))
-      .then(result => {
-        if (!result.success) {
-          console.error('Failed to get caller identity:', result.error);
-          return result;
-        }
-        
-        console.log('STS Response:', result.data);
-        
-        return {
-          success: true as const,
-          data: {
-            accountId: result.data.Account || 'unknown',
-            arn: result.data.Arn || 'unknown',
-            userId: result.data.UserId || 'unknown'
-          }
-        };
-      });
+    const result = await safeAsync(this.stsClient.send(command));
+    if (!result.success) {
+      console.error('Failed to get caller identity:', result.error);
+      return result;
+    }
+
+    console.log('STS Response:', result.data);
+
+    return {
+      success: true as const,
+      data: {
+        accountId: result.data.Account || 'unknown',
+        arn: result.data.Arn || 'unknown',
+        userId: result.data.UserId || 'unknown'
+      }
+    };
   }
 
   /**
