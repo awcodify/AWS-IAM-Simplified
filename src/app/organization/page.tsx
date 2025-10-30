@@ -90,7 +90,8 @@ function OrganizationContent() {
     // Fetch users only (accounts are now handled by useOrganizationAccounts hook)
     const usersUrl = `/api/organization/users?ssoRegion=${encodeURIComponent(awsRegion)}&region=${encodeURIComponent(awsRegion)}&page=${page}&limit=10${search ? `&search=${encodeURIComponent(search)}` : ''}`;
     const usersResponse = await fetch(usersUrl, {
-      cache: 'force-cache'
+      headers: createAuthHeaders(),
+      cache: 'no-store'
     });
     
     const usersData = await usersResponse.json();
