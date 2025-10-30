@@ -58,6 +58,8 @@ export interface UserGroup {
   Arn: string;
   CreateDate: Date;
   Path: string;
+  attachedPolicies?: AttachedPolicy[];
+  inlinePolicies?: InlinePolicy[];
 }
 
 export interface UserPermissions {
