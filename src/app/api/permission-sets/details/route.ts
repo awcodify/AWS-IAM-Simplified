@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     instanceId
   });
   
-  const permissionSetDetails = await awsService.getPermissionSetDetails(permissionSetArn);
+  const permissionSetDetails = await awsService.getPermissionSetDetails(permissionSetArn, ssoRegion);
 
   if (!permissionSetDetails) {
     // Create a fallback response with basic information
