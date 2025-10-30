@@ -39,24 +39,31 @@ export default function AccountTypeIndicator({ type, hasAccess, isChecking, erro
     );
   }
 
+  // Build full class names for Tailwind purge compatibility
+  const bgColorClass = hasAccess 
+    ? (type === 'management' ? 'bg-blue-50' : 'bg-emerald-50')
+    : 'bg-red-50';
+  const borderColorClass = hasAccess
+    ? (type === 'management' ? 'border-blue-200' : 'border-emerald-200')
+    : 'border-red-200';
+  const iconColorClass = hasAccess
+    ? (type === 'management' ? 'text-blue-600' : 'text-emerald-600')
+    : 'text-red-600';
+
   return (
     <div
-      className={`flex items-center space-x-3 p-4 rounded-lg border ${
-        hasAccess
-          ? `bg-${color}-50 border-${color}-200`
-          : 'bg-red-50 border-red-200'
-      }`}
+      className={`flex items-center space-x-3 p-4 rounded-lg border ${bgColorClass} ${borderColorClass}`}
     >
       <div className="flex-shrink-0">
         {hasAccess ? (
-          <CheckCircle2 className={`h-5 w-5 text-${color}-600`} />
+          <CheckCircle2 className={`h-5 w-5 ${iconColorClass}`} />
         ) : (
           <XCircle className="h-5 w-5 text-red-600" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2">
-          <Icon className={`h-4 w-4 ${hasAccess ? `text-${color}-600` : 'text-red-600'}`} />
+          <Icon className={`h-4 w-4 ${iconColorClass}`} />
           <p className={`text-sm font-medium ${hasAccess ? 'text-gray-900' : 'text-red-900'}`}>
             {title}
           </p>
