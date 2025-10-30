@@ -5,6 +5,7 @@ import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import AccountRequirementBanner from '@/components/AccountRequirementBanner';
 import { useRegion } from '@/contexts/RegionContext';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
 import { createAuthHeaders } from '@/lib/credentials';
@@ -243,6 +244,13 @@ export default function OrganizationPage() {
             </div>
           )}
         </PageHeader>
+
+        {/* Account Requirement Banner */}
+        <AccountRequirementBanner
+          accountType="management"
+          feature="Organization Users"
+          description="Organization user data requires your AWS Organizations management account credentials."
+        />
 
         {/* Error Display for non-initial errors */}
         {error && !isInitialLoad && (

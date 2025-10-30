@@ -7,6 +7,7 @@ import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import RiskDashboard from '@/components/RiskDashboard';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import AccountRequirementBanner from '@/components/AccountRequirementBanner';
 import { useRegion } from '@/contexts/RegionContext';
 import { useStreamingRiskAnalysis } from '@/hooks/useStreamingRiskAnalysis';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
@@ -121,6 +122,15 @@ export default function RiskAnalysisPage() {
           icon={<Shield className="h-12 w-12 text-red-600" />}
           rightText={`Last analyzed: ${new Date().toLocaleString()}`}
         />
+
+        {/* Account Requirement Banner */}
+        <div className="p-6 pt-4 border-b border-gray-200">
+          <AccountRequirementBanner
+            accountType="sso-enabled"
+            feature="Risk Analysis"
+            description="Risk analysis requires access to permission sets and user data from your SSO-enabled account."
+          />
+        </div>
 
         {/* Reconnection Notification */}
         {!canStartNewScan(permissionSets, awsRegion, ssoRegion) && isStreaming && (
