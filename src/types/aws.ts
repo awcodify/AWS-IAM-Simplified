@@ -62,11 +62,19 @@ export interface UserGroup {
   inlinePolicies?: InlinePolicy[];
 }
 
+export interface AccessKey {
+  AccessKeyId: string;
+  Status: 'Active' | 'Inactive';
+  CreateDate: Date;
+  UserName: string;
+}
+
 export interface UserPermissions {
   user: IAMUser;
   attachedPolicies: AttachedPolicy[];
   inlinePolicies: InlinePolicy[];
   groups: UserGroup[];
+  accessKeys?: AccessKey[];
 }
 
 export interface ResourceAccess {
