@@ -313,8 +313,7 @@ export class SSOService {
         if (access.roles) {
           access.permissionSets = access.roles.map(arn => ({
             name: permissionSetNameMap.get(arn) || arn.split('/').pop() || arn,
-            arn: arn,
-            description: permissionSetNameMap.get(arn) ? undefined : 'Name not available'
+            arn: arn
           }));
         }
       });
