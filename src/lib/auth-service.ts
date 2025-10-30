@@ -166,6 +166,17 @@ export class AuthService {
     const session = this.getCurrentSession();
     if (!session) return null;
 
+    // Validate that credentials still exist
+    // A session without credentials is invalid
+    if (typeof window !== 'undefined') {
+      const storedCreds = localStorage.getItem('aws-credentials');
+      if (!storedCreds) {
+        // Credentials missing but session exists - clear session
+        this.clearSession();
+        return null;
+      }
+    }
+
     // If session is still valid, update last activity
     if (session.expiresAt && new Date() < new Date(session.expiresAt)) {
       this.saveSession({

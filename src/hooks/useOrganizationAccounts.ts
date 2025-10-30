@@ -28,8 +28,9 @@ export function useOrganizationAccounts() {
 
     // Create new fetch promise
     const promise = fetch(`/api/organization/accounts?region=${encodeURIComponent(region)}`, {
-      cache: 'force-cache',
-      headers: createAuthHeaders()
+      method: 'GET',
+      headers: createAuthHeaders(),
+      cache: 'no-store'
     })
       .then(async (response) => {
         const result = await response.json();
