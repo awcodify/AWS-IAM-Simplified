@@ -7,6 +7,7 @@ import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
+import { createAuthHeaders } from '@/lib/credentials';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { OrganizationUser, PaginationInfo } from '@/types/aws';
 
@@ -37,6 +38,7 @@ export default function OrganizationPage() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...createAuthHeaders()
       },
       body: JSON.stringify({
         userIds,

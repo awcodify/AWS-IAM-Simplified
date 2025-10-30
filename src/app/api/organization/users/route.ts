@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
     }, { status: 401 });
   }
   
-  const awsService = new SimplifiedAWSService(region);
+  const awsService = new SimplifiedAWSService(region, credentials);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(

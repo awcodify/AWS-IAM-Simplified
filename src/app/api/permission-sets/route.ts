@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }, { status: 401 });
   }
 
-  const awsService = new SimplifiedAWSService(ssoRegion);
+  const awsService = new SimplifiedAWSService(ssoRegion, credentials);
   
   // Get SSO instance
   const ssoInstancesResult = await safeAsync(awsService.getSSOInstances(ssoRegion));

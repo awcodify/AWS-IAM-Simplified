@@ -1,14 +1,14 @@
 import { SSOService } from './sso-service';
 import { OrganizationService } from './organization-service';
 import { UserService } from './user-service';
-import { AccountService } from './account-service';
+import { AccountService, type AWSCredentials } from './account-service';
 import type { OrganizationUser, OrganizationAccount, PermissionSetDetails, AccountInfo, CrossAccountUserAccess } from '@/types/aws';
 
 // Export individual services for direct use
 export { SSOService } from './sso-service';
 export { OrganizationService } from './organization-service';
 export { UserService } from './user-service';
-export { AccountService } from './account-service';
+export { AccountService, type AWSCredentials } from './account-service';
 
 /**
  * Simplified main AWS service that orchestrates other services
@@ -18,12 +18,14 @@ export class SimplifiedAWSService {
   private organizationService: OrganizationService;
   private userService: UserService;
   private accountService: AccountService;
+  private credentials?: AWSCredentials;
 
-  constructor(region?: string) {
-    this.ssoService = new SSOService(region);
-    this.organizationService = new OrganizationService(region);
-    this.userService = new UserService(region);
-    this.accountService = new AccountService(region);
+  constructor(region?: string, credentials?: AWSCredentials) {
+    this.credentials = credentials;
+    this.ssoService = new SSOService(region, credentials);
+    this.organizationService = new OrganizationService(region, credentials);
+    this.userService = new UserService(region, credentials);
+    this.accountService = new AccountService(region, credentials);
   }
 
   /**
@@ -74,7 +76,7 @@ export class SimplifiedAWSService {
    */
   async getPermissionSetDetails(permissionSetArn: string, ssoRegion?: string): Promise<PermissionSetDetails | null> {
     // If a different SSO region is specified, use a regional service
-    const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+    const ssoService = ssoRegion ? new SSOService(ssoRegion, this.credentials) : this.ssoService;
     
     const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) return null;
@@ -91,7 +93,7 @@ export class SimplifiedAWSService {
     permissionSetArn: string, 
     ssoRegion?: string
   ): Promise<PermissionSetDetails | null> {
-    const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+    const ssoService = ssoRegion ? new SSOService(ssoRegion, this.credentials) : this.ssoService;
     return ssoService.getPermissionSetDetails(instanceArn, permissionSetArn);
   }
 
@@ -157,7 +159,7 @@ export class SimplifiedAWSService {
    */
   async getUserAccountAccess(userId: string, ssoRegion?: string): Promise<CrossAccountUserAccess[]> {
     // If a different SSO region is specified, use a regional service
-    const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+    const ssoService = ssoRegion ? new SSOService(ssoRegion, this.credentials) : this.ssoService;
     
     const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
@@ -174,7 +176,7 @@ export class SimplifiedAWSService {
    */
   async getBulkUserAccountAccess(userIds: string[], ssoRegion?: string): Promise<Map<string, CrossAccountUserAccess[]>> {
     // If a different SSO region is specified, use a regional service
-    const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+    const ssoService = ssoRegion ? new SSOService(ssoRegion, this.credentials) : this.ssoService;
     
     const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
@@ -192,7 +194,7 @@ export class SimplifiedAWSService {
   async getSSOInstances(ssoRegion?: string) {
     // If a different region is specified, create a new SSO service for that region
     if (ssoRegion) {
-      const regionalSSOService = new SSOService(ssoRegion);
+      const regionalSSOService = new SSOService(ssoRegion, this.credentials);
       return regionalSSOService.getSSOInstances();
     }
     return this.ssoService.getSSOInstances();

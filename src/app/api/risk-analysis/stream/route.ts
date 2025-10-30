@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
 import { SimplifiedAWSService } from '@/lib/aws-services';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 
 export async function POST(request: NextRequest) {
@@ -17,6 +18,12 @@ export async function POST(request: NextRequest) {
 
   if (!permissionSets || !Array.isArray(permissionSets)) {
     return new Response('Permission sets array is required', { status: 400 });
+  }
+
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return new Response('AWS credentials not provided', { status: 401 });
   }
 
   console.log(`Starting streaming risk analysis for ${permissionSets.length} permission sets...`);
@@ -39,7 +46,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Initialize AWS service
-      const awsService = new SimplifiedAWSService(ssoRegion || region);
+      const awsService = new SimplifiedAWSService(ssoRegion || region, credentials);
       let instanceArn = '';
 
       // Get SSO instance

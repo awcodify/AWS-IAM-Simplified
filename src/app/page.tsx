@@ -6,6 +6,7 @@ import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
+import { createAuthHeaders } from '@/lib/credentials';
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Building2, 
@@ -36,7 +37,8 @@ export default function Dashboard() {
     
     // Only fetch users count (permission sets and accounts come from hooks)
     const usersResponse = await fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=1&limit=1&ssoOnly=false`, {
-      cache: 'no-store'
+      cache: 'no-store',
+      headers: createAuthHeaders()
     });
 
     const usersData = await usersResponse.json();

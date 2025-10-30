@@ -12,6 +12,7 @@ import {
 import type { PermissionSetDetails, CrossAccountUserAccess, OrganizationAccount } from '@/types/aws';
 import { safeAsync } from '@/lib/result';
 import { Optional } from '@/lib/optional';
+import type { AWSCredentials } from './account-service';
 
 /**
  * Simplified service for SSO-related operations
@@ -19,9 +20,10 @@ import { Optional } from '@/lib/optional';
 export class SSOService {
   private ssoAdminClient: SSOAdminClient;
 
-  constructor(region?: string) {
+  constructor(region?: string, credentials?: AWSCredentials) {
     this.ssoAdminClient = new SSOAdminClient({ 
-      region: region || process.env.AWS_REGION || 'us-east-1' 
+      region: region || process.env.AWS_REGION || 'us-east-1',
+      credentials: credentials || undefined
     });
   }
 

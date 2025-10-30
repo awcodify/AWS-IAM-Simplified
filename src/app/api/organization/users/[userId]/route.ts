@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { SimplifiedAWSService } from '@/lib/aws-services';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { CrossAccountUserAccess } from '@/types/aws';
 
 interface UserAccountAccessResponse {
@@ -25,7 +26,16 @@ export async function GET(
     }, { status: 400 });
   }
 
-  const awsService = new SimplifiedAWSService(region);
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not provided'
+    }, { status: 401 });
+  }
+
+  const awsService = new SimplifiedAWSService(region, credentials);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(

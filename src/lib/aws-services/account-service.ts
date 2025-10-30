@@ -2,15 +2,22 @@ import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import type { AccountInfo } from '@/types/aws';
 import { safeAsync, type Result } from '@/lib/result';
 
+export interface AWSCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+}
+
 /**
  * Simplified service for AWS account and STS operations
  */
 export class AccountService {
   private stsClient: STSClient;
 
-  constructor(region?: string) {
+  constructor(region?: string, credentials?: AWSCredentials) {
     this.stsClient = new STSClient({
-      region: region || process.env.AWS_REGION || 'us-east-1'
+      region: region || process.env.AWS_REGION || 'us-east-1',
+      credentials: credentials || undefined
     });
   }
 

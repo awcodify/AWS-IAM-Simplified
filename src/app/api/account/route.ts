@@ -12,7 +12,8 @@ export async function GET(request: Request) {
     }, { status: 401 });
   }
   
-  const awsService = new SimplifiedAWSService('us-east-1');
+  // Pass credentials to the AWS service
+  const awsService = new SimplifiedAWSService('us-east-1', credentials);
   
   try {
     const accountInfo = await awsService.getAccountInfo();

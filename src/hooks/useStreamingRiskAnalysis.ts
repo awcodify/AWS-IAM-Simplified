@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createAuthHeaders } from '@/lib/credentials';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { PermissionSetDetails } from '@/types/aws';
 import ScanSessionManager from '@/lib/scan-session-manager';
@@ -115,6 +116,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...createAuthHeaders()
         },
         body: JSON.stringify({
           permissionSets,

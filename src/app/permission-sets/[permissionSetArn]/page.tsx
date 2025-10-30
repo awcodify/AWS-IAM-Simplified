@@ -8,6 +8,7 @@ import PageLayout from '@/components/PageLayout';
 import PermissionSetDetails from '@/components/PermissionSetDetails';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useRegion } from '@/contexts/RegionContext';
+import { createAuthHeaders } from '@/lib/credentials';
 import type { PermissionSetDetails as PermissionSetDetailsType } from '@/types/aws';
 
 export default function PermissionSetPage() {
@@ -40,7 +41,8 @@ export default function PermissionSetPage() {
       }
 
       const response = await fetch(`/api/permission-sets/details?${params}`, {
-        cache: 'force-cache'
+        cache: 'force-cache',
+        headers: createAuthHeaders()
       });
       const result = await response.json();
 

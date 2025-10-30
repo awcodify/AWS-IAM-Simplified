@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SimplifiedAWSService } from '@/lib/aws-services';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -20,6 +21,15 @@ export async function GET(request: NextRequest) {
       error: 'SSO region is required'
     }, { status: 400 });
   }
+
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not provided'
+    }, { status: 401 });
+  }
   
   // Extract instance ARN from permission set ARN
   // Format: arn:aws:sso:::permissionSet/ssoins-1234567890123456/ps-1234567890123456
@@ -39,7 +49,7 @@ export async function GET(request: NextRequest) {
   console.log('Extracted instance ARN:', instanceArn);
   console.log('Using SSO region:', ssoRegion);
 
-  const awsService = new SimplifiedAWSService(ssoRegion);
+  const awsService = new SimplifiedAWSService(ssoRegion, credentials);
 
   // Try to get full permission set details
   console.log('Attempting to fetch permission set details:', {
