@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createAuthHeaders } from '@/lib/credentials';
 import type { OrganizationUser } from '@/types/aws';
 
@@ -26,7 +26,7 @@ export function useIAMUsers(region: string): UseIAMUsersResult {
   const [error, setError] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -47,11 +47,11 @@ export function useIAMUsers(region: string): UseIAMUsersResult {
     setUsers(data.users);
     setAccountId(data.accountId);
     setLoading(false);
-  };
+  }, [region]);
 
   useEffect(() => {
     fetchUsers();
-  }, [region]);
+  }, [fetchUsers]);
 
   return {
     users,
