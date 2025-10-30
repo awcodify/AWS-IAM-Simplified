@@ -125,12 +125,21 @@ export class PolicyAnalyzer {
     return policyArn.includes('PowerUserAccess');
   }
 
-  private parsePolicyDocument(policyDocument: string): Record<string, unknown> | null {
+  /**
+   * Safe wrapper for synchronous operations that may throw
+   */
+  private safeSyncOperation<T>(operation: () => T): { success: true; data: T } | { success: false; error: any } {
     try {
-      return JSON.parse(policyDocument);
-    } catch {
-      return null;
+      const data = operation();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error };
     }
+  }
+
+  private parsePolicyDocument(policyDocument: string): Record<string, unknown> | null {
+    const result = this.safeSyncOperation(() => JSON.parse(policyDocument));
+    return result.success ? result.data : null;
   }
 
   private normalizeToArray(value: unknown): string[] {
