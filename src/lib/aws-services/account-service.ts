@@ -1,5 +1,6 @@
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import type { AccountInfo } from '@/types/aws';
+import { safeAsync, type Result } from '@/lib/result';
 
 /**
  * Simplified service for AWS account and STS operations
@@ -16,30 +17,35 @@ export class AccountService {
   /**
    * Get current AWS account information
    */
-  async getAccountInfo(): Promise<AccountInfo> {
+  async getAccountInfo(): Promise<Result<AccountInfo, Error>> {
     console.log('Attempting to get caller identity...');
     const command = new GetCallerIdentityCommand({});
-    const response = await this.stsClient.send(command);
     
-    console.log('STS Response:', response);
-    
-    return {
-      accountId: response.Account || 'unknown',
-      arn: response.Arn || 'unknown',
-      userId: response.UserId || 'unknown'
-    };
+    return safeAsync(this.stsClient.send(command))
+      .then(result => {
+        if (!result.success) {
+          console.error('Failed to get caller identity:', result.error);
+          return result;
+        }
+        
+        console.log('STS Response:', result.data);
+        
+        return {
+          success: true as const,
+          data: {
+            accountId: result.data.Account || 'unknown',
+            arn: result.data.Arn || 'unknown',
+            userId: result.data.UserId || 'unknown'
+          }
+        };
+      });
   }
 
   /**
    * Test AWS connection by attempting to get account info
    */
   async testConnection(): Promise<boolean> {
-    try {
-      await this.getAccountInfo();
-      return true;
-    } catch (error) {
-      console.error('Connection test failed:', error);
-      return false;
-    }
+    const result = await this.getAccountInfo();
+    return result.success;
   }
 }

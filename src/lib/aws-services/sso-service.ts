@@ -10,6 +10,8 @@ import {
   ListCustomerManagedPolicyReferencesInPermissionSetCommand
 } from '@aws-sdk/client-sso-admin';
 import type { PermissionSetDetails, CrossAccountUserAccess, OrganizationAccount } from '@/types/aws';
+import { safeAsync } from '@/lib/result';
+import { Optional } from '@/lib/optional';
 
 /**
  * Simplified service for SSO-related operations
@@ -27,115 +29,114 @@ export class SSOService {
    * Get all SSO instances in the current region
    */
   async getSSOInstances() {
-    try {
-      const command = new ListInstancesCommand({});
-      const response = await this.ssoAdminClient.send(command);
-      
-      return (response.Instances || []).map(instance => ({
-        InstanceArn: instance.InstanceArn!,
-        IdentityStoreId: instance.IdentityStoreId!,
-        Region: this.ssoAdminClient.config.region || 'us-east-1'
-      }));
-    } catch (error) {
-      console.warn('Could not list SSO instances:', error);
+    const command = new ListInstancesCommand({});
+    const result = await safeAsync(this.ssoAdminClient.send(command));
+    
+    if (!result.success) {
+      console.warn('Could not list SSO instances:', result.error);
       return [];
     }
+    
+    return (result.data.Instances || []).map(instance => ({
+      InstanceArn: instance.InstanceArn!,
+      IdentityStoreId: instance.IdentityStoreId!,
+      Region: this.ssoAdminClient.config.region || 'us-east-1'
+    }));
   }
 
   /**
    * Get all permission sets for an SSO instance
    */
   async getPermissionSets(instanceArn: string) {
-    try {
-      const command = new ListPermissionSetsCommand({ InstanceArn: instanceArn });
-      const response = await this.ssoAdminClient.send(command);
-      
-      const permissionSetArns = response.PermissionSets || [];
-      const permissionSets = [];
-
-      // Get details for each permission set
-      for (const arn of permissionSetArns) {
-        const details = await this.getPermissionSetDetails(instanceArn, arn);
-        if (details) {
-          permissionSets.push({
-            arn,
-            name: details.name,
-            description: details.description
-          });
-        }
-      }
-
-      return permissionSets;
-    } catch (error) {
-      console.warn(`Could not list permission sets for ${instanceArn}:`, error);
+    const command = new ListPermissionSetsCommand({ InstanceArn: instanceArn });
+    const result = await safeAsync(this.ssoAdminClient.send(command));
+    
+    if (!result.success) {
+      console.warn(`Could not list permission sets for ${instanceArn}:`, result.error);
       return [];
     }
+    
+    const permissionSetArns = result.data.PermissionSets || [];
+    const permissionSets: Array<{ arn: string; name: string; description?: string }> = [];
+
+    // Get details for each permission set
+    for (const arn of permissionSetArns) {
+      const details = await this.getPermissionSetDetails(instanceArn, arn);
+      const optional = Optional.of(details);
+      optional.ifPresent(d => {
+        permissionSets.push({
+          arn,
+          name: d.name,
+          description: d.description
+        });
+      });
+    }
+
+    return permissionSets;
   }
 
   /**
    * Get detailed information about a permission set
    */
   async getPermissionSetDetails(instanceArn: string, permissionSetArn: string): Promise<PermissionSetDetails | null> {
-    try {
-      // Get basic permission set details
-      const describeCommand = new DescribePermissionSetCommand({
-        InstanceArn: instanceArn,
-        PermissionSetArn: permissionSetArn
-      });
-      const describeResponse = await this.ssoAdminClient.send(describeCommand);
-      const permissionSet = describeResponse.PermissionSet;
-
-      if (!permissionSet) return null;
-
-      // Get managed policies
-      const managedPoliciesCommand = new ListManagedPoliciesInPermissionSetCommand({
-        InstanceArn: instanceArn,
-        PermissionSetArn: permissionSetArn
-      });
-      const managedPoliciesResponse = await this.ssoAdminClient.send(managedPoliciesCommand);
-
-      // Get customer managed policies
-      let customerManagedPolicies: Array<{ name: string; path: string }> = [];
-      try {
-        const customerPoliciesCommand = new ListCustomerManagedPolicyReferencesInPermissionSetCommand({
-          InstanceArn: instanceArn,
-          PermissionSetArn: permissionSetArn
-        });
-        const customerPoliciesResponse = await this.ssoAdminClient.send(customerPoliciesCommand);
-        customerManagedPolicies = customerPoliciesResponse.CustomerManagedPolicyReferences?.map(p => ({
-          name: p.Name || '',
-          path: p.Path || '/'
-        })) || [];
-      } catch {
-        // No customer managed policies or access denied
-      }
-
-      // Get inline policy
-      let inlinePolicyDocument = null;
-      try {
-        const inlinePolicyCommand = new GetInlinePolicyForPermissionSetCommand({
-          InstanceArn: instanceArn,
-          PermissionSetArn: permissionSetArn
-        });
-        const inlinePolicyResponse = await this.ssoAdminClient.send(inlinePolicyCommand);
-        inlinePolicyDocument = inlinePolicyResponse.InlinePolicy || null;
-      } catch {
-        // No inline policy or access denied
-      }
-
-      return {
-        arn: permissionSetArn,
-        name: permissionSet.Name!,
-        description: permissionSet.Description,
-        sessionDuration: permissionSet.SessionDuration,
-        managedPolicies: (managedPoliciesResponse.AttachedManagedPolicies || []).map(p => p.Arn!),
-        customerManagedPolicies,
-        inlinePolicyDocument: inlinePolicyDocument || undefined
-      };
-    } catch (error) {
-      console.warn(`Could not get details for permission set ${permissionSetArn}:`, error);
+    // Get basic permission set details
+    const describeCommand = new DescribePermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    
+    const describeResult = await safeAsync(this.ssoAdminClient.send(describeCommand));
+    
+    if (!describeResult.success) {
+      console.warn(`Could not get details for permission set ${permissionSetArn}:`, describeResult.error);
       return null;
     }
+    
+    const permissionSet = describeResult.data.PermissionSet;
+    if (!permissionSet) return null;
+
+    // Get managed policies
+    const managedPoliciesCommand = new ListManagedPoliciesInPermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    const managedPoliciesResult = await safeAsync(this.ssoAdminClient.send(managedPoliciesCommand));
+    const managedPolicies = managedPoliciesResult.success 
+      ? (managedPoliciesResult.data.AttachedManagedPolicies || []).map(p => p.Arn!)
+      : [];
+
+    // Get customer managed policies
+    const customerPoliciesCommand = new ListCustomerManagedPolicyReferencesInPermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    const customerPoliciesResult = await safeAsync(this.ssoAdminClient.send(customerPoliciesCommand));
+    const customerManagedPolicies = customerPoliciesResult.success
+      ? (customerPoliciesResult.data.CustomerManagedPolicyReferences?.map(p => ({
+          name: p.Name || '',
+          path: p.Path || '/'
+        })) || [])
+      : [];
+
+    // Get inline policy
+    const inlinePolicyCommand = new GetInlinePolicyForPermissionSetCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn
+    });
+    const inlinePolicyResult = await safeAsync(this.ssoAdminClient.send(inlinePolicyCommand));
+    const inlinePolicyDocument = inlinePolicyResult.success 
+      ? (inlinePolicyResult.data.InlinePolicy || undefined)
+      : undefined;
+
+    return {
+      arn: permissionSetArn,
+      name: permissionSet.Name!,
+      description: permissionSet.Description,
+      sessionDuration: permissionSet.SessionDuration,
+      managedPolicies,
+      customerManagedPolicies,
+      inlinePolicyDocument
+    };
   }
 
   /**
@@ -148,49 +149,16 @@ export class SSOService {
   ): Promise<CrossAccountUserAccess[]> {
     console.log(`Getting account access for user: ${userId}`);
     
-    try {
-      const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
-        InstanceArn: instanceArn,
-        PrincipalType: 'USER',
-        PrincipalId: userId
-      });
-      
-      const response = await this.ssoAdminClient.send(assignmentsCommand);
-      const assignments = response.AccountAssignments || [];
-      console.log(`Found ${assignments.length} account assignments for user ${userId}`);
-      
-      // Group assignments by account ID
-      const accountAssignments = new Map<string, string[]>();
-      
-      assignments.forEach((assignment) => {
-        if (assignment.AccountId && assignment.PermissionSetArn) {
-          const accountId = assignment.AccountId;
-          const existingRoles = accountAssignments.get(accountId) || [];
-          existingRoles.push(assignment.PermissionSetArn);
-          accountAssignments.set(accountId, existingRoles);
-        }
-      });
-      
-      // Create account map for names
-      const accountMap = new Map(accounts.map(acc => [acc.id, acc.name]));
-      
-      // Create result for all accounts
-      const accountAccess: CrossAccountUserAccess[] = accounts.map(account => {
-        const roles = accountAssignments.get(account.id) || [];
-        
-        return {
-          accountId: account.id,
-          accountName: account.name,
-          hasAccess: roles.length > 0,
-          accessType: 'SSO' as const,
-          roles: roles.length > 0 ? roles : undefined,
-          lastChecked: new Date()
-        };
-      });
-      
-      return accountAccess;
-    } catch (error) {
-      console.error(`Error getting account access for user ${userId}:`, error);
+    const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
+      InstanceArn: instanceArn,
+      PrincipalType: 'USER',
+      PrincipalId: userId
+    });
+    
+    const result = await safeAsync(this.ssoAdminClient.send(assignmentsCommand));
+    
+    if (!result.success) {
+      console.error(`Error getting account access for user ${userId}:`, result.error);
       return accounts.map(account => ({
         accountId: account.id,
         accountName: account.name,
@@ -199,6 +167,37 @@ export class SSOService {
         lastChecked: new Date()
       }));
     }
+    
+    const assignments = result.data.AccountAssignments || [];
+    console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+    
+    // Group assignments by account ID
+    const accountAssignments = new Map<string, string[]>();
+    
+    assignments.forEach((assignment) => {
+      if (assignment.AccountId && assignment.PermissionSetArn) {
+        const accountId = assignment.AccountId;
+        const existingRoles = accountAssignments.get(accountId) || [];
+        existingRoles.push(assignment.PermissionSetArn);
+        accountAssignments.set(accountId, existingRoles);
+      }
+    });
+    
+    // Create result for all accounts
+    const accountAccess: CrossAccountUserAccess[] = accounts.map(account => {
+      const roles = accountAssignments.get(account.id) || [];
+      
+      return {
+        accountId: account.id,
+        accountName: account.name,
+        hasAccess: roles.length > 0,
+        accessType: 'SSO' as const,
+        roles: roles.length > 0 ? roles : undefined,
+        lastChecked: new Date()
+      };
+    });
+    
+    return accountAccess;
   }
 
   /**
@@ -233,37 +232,38 @@ export class SSOService {
         PrincipalId: userId
       });
       
-      try {
-        const response = await this.ssoAdminClient.send(assignmentsCommand);
-        const assignments = response.AccountAssignments || [];
-        console.log(`Found ${assignments.length} account assignments for user ${userId}`);
-        
-        // Group assignments by account ID for this user
-        const accountAssignments = new Map<string, string[]>();
-        assignments.forEach((assignment) => {
-          if (assignment.AccountId && assignment.PermissionSetArn) {
-            const accountId = assignment.AccountId;
-            const existingRoles = accountAssignments.get(accountId) || [];
-            existingRoles.push(assignment.PermissionSetArn);
-            accountAssignments.set(accountId, existingRoles);
-          }
-        });
-        
-        // Update the user's access map
-        const userAccess = userAccessMap.get(userId) || [];
-        userAccess.forEach(access => {
-          const roles = accountAssignments.get(access.accountId) || [];
-          if (roles.length > 0) {
-            access.hasAccess = true;
-            access.roles = roles;
-          }
-        });
-        
-        return { userId, success: true };
-      } catch (error) {
-        console.error(`Error getting account assignments for user ${userId}:`, error);
+      const result = await safeAsync(this.ssoAdminClient.send(assignmentsCommand));
+      
+      if (!result.success) {
+        console.error(`Error getting account assignments for user ${userId}:`, result.error);
         return { userId, success: false };
       }
+      
+      const assignments = result.data.AccountAssignments || [];
+      console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+      
+      // Group assignments by account ID for this user
+      const accountAssignments = new Map<string, string[]>();
+      assignments.forEach((assignment) => {
+        if (assignment.AccountId && assignment.PermissionSetArn) {
+          const accountId = assignment.AccountId;
+          const existingRoles = accountAssignments.get(accountId) || [];
+          existingRoles.push(assignment.PermissionSetArn);
+          accountAssignments.set(accountId, existingRoles);
+        }
+      });
+      
+      // Update the user's access map
+      const userAccess = userAccessMap.get(userId) || [];
+      userAccess.forEach(access => {
+        const roles = accountAssignments.get(access.accountId) || [];
+        if (roles.length > 0) {
+          access.hasAccess = true;
+          access.roles = roles;
+        }
+      });
+      
+      return { userId, success: true };
     });
     
     const results = await Promise.all(assignmentPromises);
@@ -287,21 +287,23 @@ export class SSOService {
     // Only fetch names for a sample to avoid too many API calls
     const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
     const namePromises = sampleArns.map(async (arn) => {
-      try {
-        const describeCommand = new DescribePermissionSetCommand({
-          InstanceArn: instanceArn,
-          PermissionSetArn: arn
-        });
-        const response = await this.ssoAdminClient.send(describeCommand);
-        const name = response.PermissionSet?.Name || '';
-        if (name) {
-          permissionSetNameMap.set(arn, name);
-        }
-        return { arn, name };
-      } catch (error) {
-        console.log(`Could not fetch name for permission set ${arn}:`, error);
+      const describeCommand = new DescribePermissionSetCommand({
+        InstanceArn: instanceArn,
+        PermissionSetArn: arn
+      });
+      
+      const result = await safeAsync(this.ssoAdminClient.send(describeCommand));
+      
+      if (!result.success) {
+        console.log(`Could not fetch name for permission set ${arn}:`, result.error);
         return { arn, name: '' };
       }
+      
+      const name = result.data.PermissionSet?.Name || '';
+      if (name) {
+        permissionSetNameMap.set(arn, name);
+      }
+      return { arn, name };
     });
     
     await Promise.all(namePromises);
@@ -324,22 +326,25 @@ export class SSOService {
 
   /**
    * Get all assignments for a permission set
+   * @private
    */
   private async getPermissionSetAssignments(instanceArn: string, permissionSetArn: string) {
-    try {
-      // Note: We'd need to iterate through all accounts to get all assignments
-      // This is a simplified version that would need to be enhanced
-      await new ListAccountAssignmentsCommand({
-        InstanceArn: instanceArn,
-        PermissionSetArn: permissionSetArn,
-        AccountId: 'account-placeholder' // Would need actual account IDs
-      });
-      
-      // In a real implementation, you'd iterate through all organization accounts
-      return [];
-    } catch (error) {
-      console.warn(`Could not get assignments for permission set ${permissionSetArn}:`, error);
+    // Note: We'd need to iterate through all accounts to get all assignments
+    // This is a simplified version that would need to be enhanced
+    const command = new ListAccountAssignmentsCommand({
+      InstanceArn: instanceArn,
+      PermissionSetArn: permissionSetArn,
+      AccountId: 'account-placeholder' // Would need actual account IDs
+    });
+    
+    const result = await safeAsync(this.ssoAdminClient.send(command));
+    
+    if (!result.success) {
+      console.warn(`Could not get assignments for permission set ${permissionSetArn}:`, result.error);
       return [];
     }
+    
+    // In a real implementation, you'd iterate through all organization accounts
+    return [];
   }
 }
