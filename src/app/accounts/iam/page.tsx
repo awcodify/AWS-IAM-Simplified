@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, Users, Key, FileText, Loader2, AlertCircle, RefreshCw, Mail, Calendar, CheckCircle, XCircle, Search, Filter } from 'lucide-react';
+import { Shield, Users, Key, FileText, Loader2, AlertCircle, RefreshCw, Mail, Calendar, CheckCircle, XCircle, Search, Filter, Lock, FolderTree, Code } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import AccountTypeIndicator from '@/components/AccountTypeIndicator';
@@ -9,6 +9,7 @@ import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { useAccountCapabilities } from '@/hooks/useAccountCapabilities';
 import { useIAMUsers } from '@/hooks/useIAMUsers';
+import { useIAMUserPermissions } from '@/hooks/useIAMUserPermissions';
 import type { OrganizationUser } from '@/types/aws';
 
 export default function IAMPage() {
@@ -25,6 +26,16 @@ function IAMContent() {
   const { users, loading, error, accountId, refetch } = useIAMUsers(awsRegion);
   const [selectedUser, setSelectedUser] = useState<OrganizationUser | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch permissions for selected user
+  const { 
+    permissions, 
+    loading: permissionsLoading, 
+    error: permissionsError 
+  } = useIAMUserPermissions(
+    selectedUser?.user.UserName || null, 
+    awsRegion
+  );
 
   const handleUserClick = (user: OrganizationUser) => {
     setSelectedUser(selectedUser?.user.UserId === user.user.UserId ? null : user);
@@ -350,6 +361,143 @@ function IAMContent() {
                               </div>
                             ))}
                           </div>
+                        </div>
+
+                        {/* Permissions Section */}
+                        <div className="pt-4 border-t border-gray-200">
+                          <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
+                            <Lock className="w-3 h-3 mr-1" />
+                            Permissions & Access
+                          </h5>
+
+                          {permissionsLoading && (
+                            <div className="text-center py-6">
+                              <Loader2 className="h-6 w-6 text-blue-600 mx-auto mb-2 animate-spin" />
+                              <p className="text-xs text-gray-500">Loading permissions...</p>
+                            </div>
+                          )}
+
+                          {permissionsError && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">{permissionsError}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {!permissionsLoading && !permissionsError && permissions && (
+                            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                              {/* Summary Stats */}
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="bg-blue-50 rounded-lg p-2 text-center">
+                                  <p className="text-lg font-bold text-blue-900">
+                                    {permissions.attachedPolicies.length}
+                                  </p>
+                                  <p className="text-[10px] text-blue-700 font-medium">Policies</p>
+                                </div>
+                                <div className="bg-purple-50 rounded-lg p-2 text-center">
+                                  <p className="text-lg font-bold text-purple-900">
+                                    {permissions.inlinePolicies.length}
+                                  </p>
+                                  <p className="text-[10px] text-purple-700 font-medium">Inline</p>
+                                </div>
+                                <div className="bg-emerald-50 rounded-lg p-2 text-center">
+                                  <p className="text-lg font-bold text-emerald-900">
+                                    {permissions.groups.length}
+                                  </p>
+                                  <p className="text-[10px] text-emerald-700 font-medium">Groups</p>
+                                </div>
+                              </div>
+
+                              {/* Attached Policies */}
+                              <div>
+                                <h6 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
+                                  <FileText className="w-3 h-3 mr-1.5" />
+                                  Managed Policies
+                                </h6>
+                                {permissions.attachedPolicies.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {permissions.attachedPolicies.map((policy, idx) => (
+                                      <div 
+                                        key={idx}
+                                        className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-xs hover:bg-blue-100 transition-colors"
+                                      >
+                                        <p className="font-semibold text-blue-900 mb-0.5">
+                                          {policy.PolicyName}
+                                        </p>
+                                        <p className="text-blue-700 font-mono text-[10px] break-all">
+                                          {policy.PolicyArn}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                    <FileText className="w-4 h-4 text-gray-400 mx-auto mb-1" />
+                                    <p className="text-xs text-gray-500">No managed policies attached</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Inline Policies */}
+                              <div>
+                                <h6 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
+                                  <Code className="w-3 h-3 mr-1.5" />
+                                  Inline Policies
+                                </h6>
+                                {permissions.inlinePolicies.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {permissions.inlinePolicies.map((policy, idx) => (
+                                      <div 
+                                        key={idx}
+                                        className="bg-purple-50 border border-purple-200 rounded-lg p-2.5 hover:bg-purple-100 transition-colors"
+                                      >
+                                        <p className="font-semibold text-purple-900 text-xs">
+                                          {policy.PolicyName}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                    <Code className="w-4 h-4 text-gray-400 mx-auto mb-1" />
+                                    <p className="text-xs text-gray-500">No inline policies</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Groups */}
+                              <div>
+                                <h6 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
+                                  <FolderTree className="w-3 h-3 mr-1.5" />
+                                  Group Memberships
+                                </h6>
+                                {permissions.groups.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {permissions.groups.map((group, idx) => (
+                                      <div 
+                                        key={idx}
+                                        className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs hover:bg-emerald-100 transition-colors"
+                                      >
+                                        <p className="font-semibold text-emerald-900 mb-0.5">
+                                          {group.GroupName}
+                                        </p>
+                                        <p className="text-emerald-700 font-mono text-[10px] break-all">
+                                          {group.Arn}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                    <FolderTree className="w-4 h-4 text-gray-400 mx-auto mb-1" />
+                                    <p className="text-xs text-gray-500">No group memberships</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Footer Note */}

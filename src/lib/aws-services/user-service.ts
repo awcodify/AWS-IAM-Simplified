@@ -2,8 +2,15 @@ import {
   IdentitystoreClient,
   ListUsersCommand as ListIdentityStoreUsersCommand
 } from '@aws-sdk/client-identitystore';
-import { IAMClient, ListUsersCommand } from '@aws-sdk/client-iam';
-import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess } from '@/types/aws';
+import { 
+  IAMClient, 
+  ListUsersCommand,
+  ListAttachedUserPoliciesCommand,
+  ListUserPoliciesCommand,
+  GetUserPolicyCommand,
+  ListGroupsForUserCommand
+} from '@aws-sdk/client-iam';
+import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup } from '@/types/aws';
 import { safeAsync } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 
@@ -145,5 +152,71 @@ export class UserService {
       user.DisplayName?.toLowerCase().includes(term) ||
       user.Emails.some(email => email.Value?.toLowerCase().includes(term))
     );
+  }
+
+  /**
+   * Get comprehensive IAM user permissions including policies and groups
+   */
+  async getIAMUserPermissions(userName: string): Promise<UserPermissions | null> {
+    // Get attached managed policies
+    const attachedPoliciesCommand = new ListAttachedUserPoliciesCommand({ 
+      UserName: userName 
+    });
+    const attachedPoliciesResult = await safeAsync(this.iamClient.send(attachedPoliciesCommand));
+
+    // Get inline policies
+    const inlinePoliciesCommand = new ListUserPoliciesCommand({ 
+      UserName: userName 
+    });
+    const inlinePoliciesResult = await safeAsync(this.iamClient.send(inlinePoliciesCommand));
+
+    // Get inline policy documents
+    const inlinePolicyNames = inlinePoliciesResult.success ? (inlinePoliciesResult.data.PolicyNames || []) : [];
+    const inlinePoliciesPromises = inlinePolicyNames.map(async (policyName) => {
+      const policyCommand = new GetUserPolicyCommand({
+        UserName: userName,
+        PolicyName: policyName
+      });
+      const result = await safeAsync(this.iamClient.send(policyCommand));
+      return result.success ? {
+        PolicyName: policyName,
+        PolicyDocument: result.data.PolicyDocument || ''
+      } : null;
+    });
+    const inlinePoliciesResults = await Promise.all(inlinePoliciesPromises);
+    const inlinePolicies = inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
+
+    // Get user groups
+    const groupsCommand = new ListGroupsForUserCommand({ UserName: userName });
+    const groupsResult = await safeAsync(this.iamClient.send(groupsCommand));
+
+    const attachedPolicies: AttachedPolicy[] = attachedPoliciesResult.success 
+      ? (attachedPoliciesResult.data.AttachedPolicies || []).map(policy => ({
+          PolicyName: policy.PolicyName || '',
+          PolicyArn: policy.PolicyArn || ''
+        }))
+      : [];
+
+    const groups: UserGroup[] = groupsResult.success
+      ? (groupsResult.data.Groups || []).map(group => ({
+          GroupName: group.GroupName || '',
+          Arn: group.Arn || '',
+          CreateDate: group.CreateDate || new Date(),
+          Path: group.Path || '/'
+        }))
+      : [];
+
+    return {
+      user: {
+        UserName: userName,
+        UserId: '',
+        Arn: '',
+        CreateDate: new Date(),
+        Path: '/'
+      },
+      attachedPolicies,
+      inlinePolicies,
+      groups
+    };
   }
 }
