@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
+import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { OrganizationUser, PermissionSetDetails } from '@/types/aws';
 
@@ -19,6 +20,15 @@ export async function POST(request: NextRequest) {
 
   const { users, permissionSets, region, ssoRegion, analysisType } = body;
 
+  // Extract credentials from headers
+  const credentials = extractCredentialsFromHeaders(request);
+  if (!credentials) {
+    return NextResponse.json({
+      success: false,
+      error: 'AWS credentials not provided'
+    }, { status: 401 });
+  }
+
   // Check if this is a permission set analysis
   if (analysisType === 'permission-sets') {
     if (!permissionSets || !Array.isArray(permissionSets)) {
@@ -32,15 +42,15 @@ export async function POST(request: NextRequest) {
     console.log(`Using region: ${region}, SSO region: ${ssoRegion}`);
 
     // Initialize AWS service for permission set details
-    const awsService = new AWSService(ssoRegion || region);
+    const awsService = new SimplifiedAWSService(ssoRegion || region, credentials);
 
     // Get detailed permission set information
     const enrichedPermissionSets = [];
     
     // First, get SSO instance to extract instance ARN
     let instanceArn = '';
-    const ssoInstances = await awsService.getSSOInstances(ssoRegion || region).catch(error => {
-      console.warn('Could not get SSO instance, using ARN extraction:', error);
+    const ssoInstances = await awsService.getSSOInstances(ssoRegion || region).catch(() => {
+      console.warn('Could not get SSO instance, using ARN extraction');
       return [];
     });
     
@@ -64,12 +74,12 @@ export async function POST(request: NextRequest) {
 
       if (currentInstanceArn && permissionSet.arn) {
         console.log(`Getting details for permission set: ${permissionSet.name || permissionSet.arn}`);
-        const permissionSetDetails = await awsService.getPermissionSetDetails(
+        const permissionSetDetails = await awsService.getPermissionSetDetailsWithInstance(
           currentInstanceArn,
           permissionSet.arn,
           ssoRegion || region
-        ).catch(error => {
-          console.warn(`Failed to get details for permission set ${permissionSet.arn || permissionSet.name}:`, error);
+        ).catch(() => {
+          console.warn(`Failed to get details for permission set ${permissionSet.arn || permissionSet.name}`);
           return null;
         });
         
@@ -174,7 +184,7 @@ export async function POST(request: NextRequest) {
     console.log(`Using region: ${region}, SSO region: ${ssoRegion}`);
 
     // Initialize AWS service for permission set details (centralized from org account)
-    const awsService = new AWSService(ssoRegion || region);
+    const awsService = new SimplifiedAWSService(ssoRegion || region, credentials);
 
     // Check if we have any users with account access data
     const usersWithAccess = users.filter((user: OrganizationUser) => 
@@ -222,8 +232,8 @@ export async function POST(request: NextRequest) {
     
     // First, get SSO instance to extract instance ARN
     let instanceArn = '';
-    const ssoInstances = await awsService.getSSOInstances(ssoRegion || region).catch(error => {
-      console.warn('Could not get SSO instance, using ARN extraction:', error);
+    const ssoInstances = await awsService.getSSOInstances(ssoRegion || region).catch(() => {
+      console.warn('Could not get SSO instance, using ARN extraction');
       return [];
     });
     
@@ -247,12 +257,12 @@ export async function POST(request: NextRequest) {
 
       if (currentInstanceArn) {
         console.log(`Getting details for permission set: ${basicPermissionSet.name || psArn}`);
-        const permissionSetDetails = await awsService.getPermissionSetDetails(
+        const permissionSetDetails = await awsService.getPermissionSetDetailsWithInstance(
           currentInstanceArn,
           psArn,
           ssoRegion || region
-        ).catch(error => {
-          console.warn(`Failed to get details for permission set ${psArn}:`, error);
+        ).catch(() => {
+          console.warn(`Failed to get details for permission set ${psArn}`);
           return null;
         });
         

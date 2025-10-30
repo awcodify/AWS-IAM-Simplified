@@ -15,6 +15,12 @@ export function usePermissionSets() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Clear cache on mount to ensure fresh data
+  useEffect(() => {
+    permissionSetsCache = {};
+    permissionSetsPromises = {};
+  }, []);
+
   const fetchPermissionSets = useCallback(async (region: string, ssoRegionParam: string): Promise<PermissionSetDetails[]> => {
     const cacheKey = `${region}-${ssoRegionParam}`;
     
@@ -30,7 +36,7 @@ export function usePermissionSets() {
 
     // Create new fetch promise
     const promise = fetch(`/api/permission-sets?region=${encodeURIComponent(region)}&ssoRegion=${encodeURIComponent(ssoRegionParam)}`, {
-      cache: 'force-cache',
+      cache: 'no-store', // Changed from 'force-cache' to avoid stale data
       headers: createAuthHeaders()
     })
       .then(async (response) => {

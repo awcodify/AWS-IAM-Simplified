@@ -5,13 +5,24 @@ import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import AccountRequirementBanner from '@/components/AccountRequirementBanner';
+import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
+import { createAuthHeaders } from '@/lib/credentials';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { OrganizationUser, PaginationInfo } from '@/types/aws';
 
 export default function OrganizationPage() {
-  const { awsRegion, ssoRegion } = useRegion();
+  return (
+    <AuthGuard>
+      <OrganizationContent />
+    </AuthGuard>
+  );
+}
+
+function OrganizationContent() {
+  const { awsRegion } = useRegion();
   const { accounts } = useOrganizationAccounts();
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -37,10 +48,11 @@ export default function OrganizationPage() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...createAuthHeaders()
       },
       body: JSON.stringify({
         userIds,
-        ssoRegion: encodeURIComponent(ssoRegion),
+        ssoRegion: encodeURIComponent(awsRegion),
         region: encodeURIComponent(awsRegion)
       }),
       cache: 'no-store'
@@ -61,7 +73,7 @@ export default function OrganizationPage() {
     }
     
     setLoadingBulkAccess(false);
-  }, [ssoRegion, awsRegion]);
+  }, [awsRegion]);
 
   const fetchData = useCallback(async (page: number = 1, search: string = '', isNewSearch: boolean = false) => {
     setLoading(true);
@@ -76,9 +88,10 @@ export default function OrganizationPage() {
     setSelectedUser(null);
 
     // Fetch users only (accounts are now handled by useOrganizationAccounts hook)
-    const usersUrl = `/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=${page}&limit=10${search ? `&search=${encodeURIComponent(search)}` : ''}`;
+    const usersUrl = `/api/organization/users?ssoRegion=${encodeURIComponent(awsRegion)}&region=${encodeURIComponent(awsRegion)}&page=${page}&limit=10${search ? `&search=${encodeURIComponent(search)}` : ''}`;
     const usersResponse = await fetch(usersUrl, {
-      cache: 'force-cache'
+      headers: createAuthHeaders(),
+      cache: 'no-store'
     });
     
     const usersData = await usersResponse.json();
@@ -97,7 +110,7 @@ export default function OrganizationPage() {
     }
     
     setLoading(false);
-  }, [ssoRegion, awsRegion, isInitialLoad, loadBulkAccessForUsers]);
+  }, [awsRegion, isInitialLoad, loadBulkAccessForUsers]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -242,6 +255,13 @@ export default function OrganizationPage() {
           )}
         </PageHeader>
 
+        {/* Account Requirement Banner */}
+        <AccountRequirementBanner
+          accountType="management"
+          feature="Organization Users"
+          description="Organization user data requires your AWS Organizations management account credentials."
+        />
+
         {/* Error Display for non-initial errors */}
         {error && !isInitialLoad && (
           <ErrorDisplay
@@ -274,7 +294,6 @@ export default function OrganizationPage() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => {
-                    console.log('PARENT Previous clicked - going to page:', pagination.currentPage - 1);
                     handlePageChange(pagination.currentPage - 1);
                   }}
                   disabled={!pagination.hasPreviousPage || loading}
@@ -300,7 +319,6 @@ export default function OrganizationPage() {
                     <button
                       key={pageNum}
                       onClick={() => {
-                        console.log('PARENT Page number clicked:', pageNum);
                         handlePageChange(pageNum);
                       }}
                       disabled={loading}
@@ -317,7 +335,6 @@ export default function OrganizationPage() {
                 
                 <button
                   onClick={() => {
-                    console.log('PARENT Next clicked - going to page:', pagination.currentPage + 1);
                     handlePageChange(pagination.currentPage + 1);
                   }}
                   disabled={!pagination.hasNextPage || loading}

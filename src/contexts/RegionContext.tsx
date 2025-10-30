@@ -25,8 +25,8 @@ export function RegionProvider({ children }: RegionProviderProps) {
     return process.env.NEXT_PUBLIC_AWS_DEFAULT_REGION || 'us-east-1';
   });
 
-  // SSO region comes from environment variables
-  const ssoRegion = process.env.NEXT_PUBLIC_AWS_SSO_REGION || 'us-east-1';
+  // SSO region defaults to same as AWS region (can be overridden by env var)
+  const ssoRegion = process.env.NEXT_PUBLIC_AWS_SSO_REGION || awsRegion;
 
   // Persist AWS region to localStorage
   const setAwsRegion = (region: string) => {

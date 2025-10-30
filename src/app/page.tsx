@@ -6,19 +6,24 @@ import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
+import { useAccountCapabilities } from '@/hooks/useAccountCapabilities';
+import { createAuthHeaders } from '@/lib/credentials';
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Building2, 
   ArrowRight, 
   Shield, 
   AlertTriangle, 
-  Users
+  Users,
+  Lock,
+  Info
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { awsRegion, ssoRegion } = useRegion();
   const { permissionSets } = usePermissionSets();
   const { accounts } = useOrganizationAccounts();
+  const capabilities = useAccountCapabilities(awsRegion, ssoRegion);
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
     totalPermissionSets: 0,
@@ -36,7 +41,8 @@ export default function Dashboard() {
     
     // Only fetch users count (permission sets and accounts come from hooks)
     const usersResponse = await fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=1&limit=1&ssoOnly=false`, {
-      cache: 'no-store'
+      cache: 'no-store',
+      headers: createAuthHeaders()
     });
 
     const usersData = await usersResponse.json();
@@ -78,7 +84,9 @@ export default function Dashboard() {
                   description: "Active users across your organization",
                   gradient: "from-blue-500 to-cyan-500",
                   bgGradient: "from-blue-50 to-cyan-50",
-                  link: "/organization"
+                  link: "/organization",
+                  requiresOrg: true,
+                  requirementText: "Requires Management Account"
                 },
                 {
                   icon: Shield,
@@ -87,7 +95,9 @@ export default function Dashboard() {
                   description: "Configured permission sets",
                   gradient: "from-emerald-500 to-teal-500",
                   bgGradient: "from-emerald-50 to-teal-50",
-                  link: "/permission-sets"
+                  link: "/permission-sets",
+                  requiresSSO: true,
+                  requirementText: "Requires SSO-Enabled Account"
                 },
                 {
                   icon: Building2,
@@ -96,10 +106,54 @@ export default function Dashboard() {
                   description: "Managed accounts in organization",
                   gradient: "from-purple-500 to-indigo-500",
                   bgGradient: "from-purple-50 to-indigo-50",
-                  link: "/organization"
+                  link: "/organization",
+                  requiresOrg: true,
+                  requirementText: "Requires Management Account"
                 }
               ].map((stat, index) => {
                 const Icon = stat.icon;
+                const isDisabled = (stat.requiresOrg && !capabilities.hasOrganizationAccess) || 
+                                 (stat.requiresSSO && !capabilities.hasSSOAccess);
+                const isLoading = capabilities.isChecking || metrics.loading;
+
+                if (isDisabled) {
+                  return (
+                    <div key={index} className="relative">
+                      <div className={`absolute inset-0 bg-gradient-to-r ${stat.bgGradient} rounded-3xl opacity-50 shadow-lg`} />
+                      <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-white/30 shadow-xl transition-all duration-300">
+                        <div className="absolute top-4 right-4 flex items-center gap-1 bg-amber-100 text-amber-800 text-xs font-medium px-2 py-1 rounded-full">
+                          <Lock className="w-3 h-3" />
+                          <span>Restricted</span>
+                        </div>
+                        <div className="flex items-center justify-between mb-6 opacity-50">
+                          <div className={`p-4 rounded-2xl bg-gradient-to-r ${stat.gradient} shadow-lg transition-shadow duration-300`}>
+                            <Icon className="w-8 h-8 text-white" />
+                          </div>
+                          <div className="text-right">
+                            {isLoading ? (
+                              <div className="animate-pulse">
+                                <div className="h-10 bg-gray-200 rounded w-20 ml-auto"></div>
+                              </div>
+                            ) : (
+                              <div className={`text-4xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent transition-transform duration-300`}>
+                                —
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="opacity-50">
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2">{stat.title}</h3>
+                          <p className="text-gray-600">{stat.description}</p>
+                        </div>
+                        <div className="mt-4 flex items-center text-sm font-medium text-amber-700">
+                          <Info className="w-4 h-4 mr-1" />
+                          <span>{stat.requirementText}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <Link key={index} href={stat.link} className="group relative block">
                     <div className={`absolute inset-0 bg-gradient-to-r ${stat.bgGradient} rounded-3xl transform group-hover:scale-105 transition-all duration-300 shadow-lg group-hover:shadow-2xl`} />
@@ -109,7 +163,7 @@ export default function Dashboard() {
                           <Icon className="w-8 h-8 text-white" />
                         </div>
                         <div className="text-right">
-                          {metrics.loading ? (
+                          {isLoading ? (
                             <div className="animate-pulse">
                               <div className="h-10 bg-gray-200 rounded w-20 ml-auto"></div>
                             </div>
@@ -138,37 +192,73 @@ export default function Dashboard() {
             <div className="mt-12">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Link
-                  href="/organization"
-                  className="group p-6 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300"
-                >
-                  <div className="flex items-center">
-                    <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors duration-300">
-                      <Users className="w-6 h-6 text-blue-600" />
+                {/* Manage Users */}
+                {capabilities.hasOrganizationAccess ? (
+                  <Link
+                    href="/organization"
+                    className="group p-6 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300"
+                  >
+                    <div className="flex items-center">
+                      <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors duration-300">
+                        <Users className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600">Manage Users</h3>
+                        <p className="text-gray-600">View and manage organization users</p>
+                      </div>
+                      <ArrowRight className="w-5 h-5 ml-auto text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-300" />
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600">Manage Users</h3>
-                      <p className="text-gray-600">View and manage organization users</p>
+                  </Link>
+                ) : (
+                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 opacity-60 cursor-not-allowed">
+                    <div className="flex items-center">
+                      <div className="p-3 bg-gray-200 rounded-lg">
+                        <Users className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-semibold text-gray-500">Manage Users</h3>
+                          <Lock className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <p className="text-gray-500 text-sm">Requires Management Account</p>
+                      </div>
                     </div>
-                    <ArrowRight className="w-5 h-5 ml-auto text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-300" />
                   </div>
-                </Link>
+                )}
 
-                <Link
-                  href="/risk-analysis"
-                  className="group p-6 bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-lg transition-all duration-300"
-                >
-                  <div className="flex items-center">
-                    <div className="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors duration-300">
-                      <AlertTriangle className="w-6 h-6 text-orange-600" />
+                {/* Risk Analysis */}
+                {capabilities.hasSSOAccess ? (
+                  <Link
+                    href="/risk-analysis"
+                    className="group p-6 bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-lg transition-all duration-300"
+                  >
+                    <div className="flex items-center">
+                      <div className="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors duration-300">
+                        <AlertTriangle className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-orange-600">Risk Analysis</h3>
+                        <p className="text-gray-600">Analyze security risks and compliance</p>
+                      </div>
+                      <ArrowRight className="w-5 h-5 ml-auto text-gray-400 group-hover:text-orange-600 group-hover:translate-x-1 transition-all duration-300" />
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-orange-600">Risk Analysis</h3>
-                      <p className="text-gray-600">Analyze security risks and compliance</p>
+                  </Link>
+                ) : (
+                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 opacity-60 cursor-not-allowed">
+                    <div className="flex items-center">
+                      <div className="p-3 bg-gray-200 rounded-lg">
+                        <AlertTriangle className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-semibold text-gray-500">Risk Analysis</h3>
+                          <Lock className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <p className="text-gray-500 text-sm">Requires SSO-Enabled Account</p>
+                      </div>
                     </div>
-                    <ArrowRight className="w-5 h-5 ml-auto text-gray-400 group-hover:text-orange-600 group-hover:translate-x-1 transition-all duration-300" />
                   </div>
-                </Link>
+                )}
               </div>
             </div>
           </div>

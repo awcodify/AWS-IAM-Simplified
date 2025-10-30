@@ -1,3 +1,19 @@
+/**
+ * @deprecated This file is being phased out in favor of modular services.
+ * 
+ * Please use the modular services from `/lib/aws-services/` instead:
+ * - SimplifiedAWSService: Main orchestrator service
+ * - AccountService: Account and STS operations (getAccountInfo, testConnection)
+ * - OrganizationService: AWS Organizations operations (listAccounts, getOrganizationInfo)
+ * - SSOService: SSO Admin operations (getPermissionSets, getPermissionSetDetails)
+ * - UserService: IAM and Identity Center user operations (getIAMUsers, getIdentityCenterUsers)
+ * 
+ * Migration status:
+ * ✅ All API routes have been migrated to use modular services
+ * ⚠️ This file is kept for backward compatibility only
+ * 🗑️ Will be removed in a future version
+ */
+
 import { 
   IAMClient, 
   GetUserCommand, 

@@ -10,15 +10,34 @@ Managing IAM in AWS Organizations can be complex, especially when you need to un
 
 ## ✨ Features
 
-- **Organization View** (Management Account)
+- **Organization View** (Management Account Required)
   - List all accounts in your AWS Organization
   - See which users have access to which accounts
   - Cross-account user access verification
   - Visual representation of user permissions across the organization
 
+- **Permission Sets** (SSO-Enabled Account Required)
+  - View and manage AWS SSO permission sets
+  - Detailed permission set policies
+  - Permission set assignments across accounts
+
+- **Risk Analysis** (SSO-Enabled Account Required)
+  - Real-time security risk assessment
+  - Identify overly permissive permission sets
+  - Track privileged access across organization
+
 - **Real-time data** - Fetches live data from AWS IAM and Organizations APIs
 - **Clean, modern UI** - Built with Next.js and Tailwind CSS
 - **Account information** - Displays current AWS account details
+
+## ⚠️ Important: Account Requirements
+
+Different features require different AWS account credentials. **Please read [ACCOUNT_REQUIREMENTS.md](./ACCOUNT_REQUIREMENTS.md)** to understand which account to use for each feature.
+
+**Quick Reference:**
+- 🏢 **Organization Users** → Management Account
+- 🛡️ **Permission Sets** → SSO-Enabled Account  
+- 🔍 **Risk Analysis** → SSO-Enabled Account
 
 ## 🚀 Quick Start
 
@@ -26,6 +45,7 @@ Managing IAM in AWS Organizations can be complex, especially when you need to un
 
 - Node.js 18+ installed
 - AWS credentials configured (see setup below)
+- Understanding of which AWS account to use (see [ACCOUNT_REQUIREMENTS.md](./ACCOUNT_REQUIREMENTS.md))
 
 ### Installation
 
@@ -38,12 +58,24 @@ npm install
 
 2. Set up AWS credentials (choose one method):
 
-**Option A: AWS CLI**
+**Option A: AWS SSO (Recommended for Multiple Accounts)**
+```bash
+# Configure SSO for management account
+aws configure sso --profile management
+
+# Configure SSO for SSO-admin account (if different)
+aws configure sso --profile sso-admin
+
+# Use the appropriate profile
+export AWS_PROFILE=management
+```
+
+**Option B: AWS CLI**
 ```bash
 aws configure
 ```
 
-**Option B: Environment Variables**
+**Option C: Environment Variables**
 ```bash
 cp .env.example .env.local
 # Edit .env.local with your AWS credentials and region settings

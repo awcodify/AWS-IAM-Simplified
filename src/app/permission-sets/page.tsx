@@ -6,6 +6,8 @@ import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import AccountRequirementBanner from '@/components/AccountRequirementBanner';
+import AuthGuard from '@/components/AuthGuard';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
 
 interface PermissionSet {
@@ -15,6 +17,14 @@ interface PermissionSet {
 }
 
 export default function PermissionSetsPage() {
+  return (
+    <AuthGuard>
+      <PermissionSetsContent />
+    </AuthGuard>
+  );
+}
+
+function PermissionSetsContent() {
   const { permissionSets, loading, error } = usePermissionSets();
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -82,6 +92,15 @@ export default function PermissionSetsPage() {
             </div>
           </div>
         </PageHeader>
+
+        {/* Account Requirement Banner */}
+        <div className="p-6 pt-4 border-b border-gray-200">
+          <AccountRequirementBanner
+            accountType="sso-enabled"
+            feature="Permission Sets"
+            description="Permission sets are managed in the AWS account where IAM Identity Center (SSO) is enabled."
+          />
+        </div>
 
         {/* Search */}
         <div className="p-6 border-b border-gray-200">

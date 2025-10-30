@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import { safeAsync } from '@/lib/result';
 
@@ -24,30 +24,28 @@ export async function GET(request: NextRequest) {
     }, { status: 401 });
   }
 
-  const awsService = new AWSService(ssoRegion, credentials);
+  const awsService = new SimplifiedAWSService(ssoRegion, credentials);
   
   // Get SSO instance
   const ssoInstancesResult = await safeAsync(awsService.getSSOInstances(ssoRegion));
   if (!ssoInstancesResult.success) {
-    console.error('Error fetching SSO instances:', ssoInstancesResult.error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to fetch SSO instances'
+      error: 'IAM Identity Center not accessible. Please ensure it is enabled in your account and you have proper permissions.',
+      details: ssoInstancesResult.error?.message || String(ssoInstancesResult.error)
     }, { status: 500 });
   }
 
   if (!ssoInstancesResult.data.length) {
     return NextResponse.json({
       success: false,
-      error: 'No SSO instances found'
+      error: 'No IAM Identity Center instances found. Please enable IAM Identity Center in your AWS account first.'
     }, { status: 404 });
   }
 
-  const ssoInstance = ssoInstancesResult.data[0];
-  const permissionSetsResult = await safeAsync(awsService.getPermissionSets(ssoInstance.InstanceArn));
+  const permissionSetsResult = await safeAsync(awsService.getPermissionSets());
   
   if (!permissionSetsResult.success) {
-    console.error('Error fetching permission sets:', permissionSetsResult.error);
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch permission sets'

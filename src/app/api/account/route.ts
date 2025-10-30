@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 
 export async function GET(request: Request) {
@@ -12,7 +12,8 @@ export async function GET(request: Request) {
     }, { status: 401 });
   }
   
-  const awsService = new AWSService('us-east-1', credentials);
+  // Pass credentials to the AWS service
+  const awsService = new SimplifiedAWSService('us-east-1', credentials);
   
   try {
     const accountInfo = await awsService.getAccountInfo();

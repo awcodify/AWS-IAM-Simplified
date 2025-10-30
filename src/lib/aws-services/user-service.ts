@@ -4,6 +4,8 @@ import {
 } from '@aws-sdk/client-identitystore';
 import { IAMClient, ListUsersCommand } from '@aws-sdk/client-iam';
 import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess } from '@/types/aws';
+import { safeAsync } from '@/lib/result';
+import type { AWSCredentials } from './account-service';
 
 /**
  * Simplified service for user management operations
@@ -12,63 +14,70 @@ export class UserService {
   private identityStoreClient: IdentitystoreClient;
   private iamClient: IAMClient;
 
-  constructor(region?: string) {
+  constructor(region?: string, credentials?: AWSCredentials) {
     const regionConfig = region || process.env.AWS_REGION || 'us-east-1';
-    this.identityStoreClient = new IdentitystoreClient({ region: regionConfig });
-    this.iamClient = new IAMClient({ region: regionConfig });
+    this.identityStoreClient = new IdentitystoreClient({ 
+      region: regionConfig,
+      credentials: credentials || undefined
+    });
+    this.iamClient = new IAMClient({ 
+      region: regionConfig,
+      credentials: credentials || undefined
+    });
   }
 
   /**
    * Get Identity Center users
    */
   async getIdentityCenterUsers(identityStoreId: string): Promise<IdentityCenterUser[]> {
-    try {
-      const command = new ListIdentityStoreUsersCommand({
-        IdentityStoreId: identityStoreId
-      });
-      const response = await this.identityStoreClient.send(command);
-      
-      return (response.Users || []).map(user => ({
-        UserId: user.UserId!,
-        UserName: user.UserName!,
-        DisplayName: user.DisplayName,
-        Name: {
-          FamilyName: user.Name?.FamilyName,
-          GivenName: user.Name?.GivenName
-        },
-        Emails: (user.Emails || []).map(email => ({
-          Value: email.Value || '',
-          Type: email.Type,
-          Primary: email.Primary
-        })),
-        Active: true,
-        IdentityStoreId: identityStoreId
-      }));
-    } catch (error) {
-      console.warn(`Could not list Identity Center users for store ${identityStoreId}:`, error);
+    const command = new ListIdentityStoreUsersCommand({
+      IdentityStoreId: identityStoreId
+    });
+    
+    const result = await safeAsync(this.identityStoreClient.send(command));
+    
+    if (!result.success) {
+      console.warn(`Could not list Identity Center users for store ${identityStoreId}:`, result.error);
       return [];
     }
+    
+    return (result.data.Users || []).map(user => ({
+      UserId: user.UserId!,
+      UserName: user.UserName!,
+      DisplayName: user.DisplayName,
+      Name: {
+        FamilyName: user.Name?.FamilyName,
+        GivenName: user.Name?.GivenName
+      },
+      Emails: (user.Emails || []).map(email => ({
+        Value: email.Value || '',
+        Type: email.Type,
+        Primary: email.Primary
+      })),
+      Active: true,
+      IdentityStoreId: identityStoreId
+    }));
   }
 
   /**
    * Get IAM users (fallback when Identity Center is not available)
    */
   async getIAMUsers(): Promise<IAMUser[]> {
-    try {
-      const command = new ListUsersCommand({});
-      const response = await this.iamClient.send(command);
-      
-      return (response.Users || []).map(user => ({
-        UserName: user.UserName!,
-        UserId: user.UserId!,
-        Arn: user.Arn!,
-        CreateDate: user.CreateDate!,
-        Path: user.Path!
-      }));
-    } catch (error) {
-      console.warn('Could not list IAM users:', error);
+    const command = new ListUsersCommand({});
+    const result = await safeAsync(this.iamClient.send(command));
+    
+    if (!result.success) {
+      console.warn('Could not list IAM users:', result.error);
       return [];
     }
+    
+    return (result.data.Users || []).map(user => ({
+      UserName: user.UserName!,
+      UserId: user.UserId!,
+      Arn: user.Arn!,
+      CreateDate: user.CreateDate!,
+      Path: user.Path!
+    }));
   }
 
   /**
