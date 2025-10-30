@@ -184,31 +184,26 @@ export class UserService {
    * Get managed policy document
    */
   private async getManagedPolicyDocument(policyArn: string): Promise<PolicyPermission[]> {
-    try {
-      // Get policy
-      const getPolicyCommand = new GetPolicyCommand({ PolicyArn: policyArn });
-      const policyResult = await safeAsync(this.iamClient.send(getPolicyCommand));
-      
-      if (!policyResult.success || !policyResult.data.Policy?.DefaultVersionId) {
-        return [];
-      }
-
-      // Get policy version (contains the actual policy document)
-      const getPolicyVersionCommand = new GetPolicyVersionCommand({
-        PolicyArn: policyArn,
-        VersionId: policyResult.data.Policy.DefaultVersionId
-      });
-      const versionResult = await safeAsync(this.iamClient.send(getPolicyVersionCommand));
-      
-      if (!versionResult.success || !versionResult.data.PolicyVersion?.Document) {
-        return [];
-      }
-
-      return this.parsePolicyDocument(versionResult.data.PolicyVersion.Document);
-    } catch (error) {
-      console.warn(`Failed to get policy document for ${policyArn}:`, error);
+    // Get policy
+    const getPolicyCommand = new GetPolicyCommand({ PolicyArn: policyArn });
+    const policyResult = await safeAsync(this.iamClient.send(getPolicyCommand));
+    
+    if (!policyResult.success || !policyResult.data.Policy?.DefaultVersionId) {
       return [];
     }
+
+    // Get policy version (contains the actual policy document)
+    const getPolicyVersionCommand = new GetPolicyVersionCommand({
+      PolicyArn: policyArn,
+      VersionId: policyResult.data.Policy.DefaultVersionId
+    });
+    const versionResult = await safeAsync(this.iamClient.send(getPolicyVersionCommand));
+    
+    if (!versionResult.success || !versionResult.data.PolicyVersion?.Document) {
+      return [];
+    }
+
+    return this.parsePolicyDocument(versionResult.data.PolicyVersion.Document);
   }
 
   /**
