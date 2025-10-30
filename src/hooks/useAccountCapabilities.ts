@@ -2,17 +2,16 @@ import { useState, useEffect } from 'react';
 import { createAuthHeaders } from '@/lib/credentials';
 
 interface AccountCapabilities {
-  hasOrganizationAccess: boolean;
-  hasSSOAccess: boolean;
+  hasManagementAccess: boolean; // Has both Organization + SSO (Identity Center)
+  hasIAMAccess: boolean; // Can access IAM in current account (always true)
   isChecking: boolean;
-  organizationError?: string;
-  ssoError?: string;
+  managementError?: string;
 }
 
 export function useAccountCapabilities(awsRegion: string, ssoRegion: string) {
   const [capabilities, setCapabilities] = useState<AccountCapabilities>({
-    hasOrganizationAccess: false,
-    hasSSOAccess: false,
+    hasManagementAccess: false,
+    hasIAMAccess: true, // IAM is always available in any account
     isChecking: true,
   });
 
@@ -20,8 +19,8 @@ export function useAccountCapabilities(awsRegion: string, ssoRegion: string) {
     const checkCapabilities = async () => {
       if (!awsRegion || !ssoRegion) {
         setCapabilities({
-          hasOrganizationAccess: false,
-          hasSSOAccess: false,
+          hasManagementAccess: false,
+          hasIAMAccess: true,
           isChecking: false,
         });
         return;
@@ -29,50 +28,55 @@ export function useAccountCapabilities(awsRegion: string, ssoRegion: string) {
 
       setCapabilities(prev => ({ ...prev, isChecking: true }));
 
-      // Check organization access
-      const checkOrganization = async () => {
-        const response = await fetch(
+      // Check management account access (Organization + SSO)
+      // If account has organization access, it should also have SSO
+      const checkManagement = async () => {
+        // First check organization access
+        const orgResponse = await fetch(
           `/api/organization/accounts?region=${encodeURIComponent(awsRegion)}`,
           {
             headers: createAuthHeaders(),
             cache: 'no-store',
           }
         );
-        const data = await response.json();
+        const orgData = await orgResponse.json();
+        const hasOrgAccess = orgResponse.ok && orgData.success && Array.isArray(orgData.data);
+
+        // If no org access, not a management account
+        if (!hasOrgAccess) {
+          return {
+            hasAccess: false,
+            error: orgData.error || 'Not a management account'
+          };
+        }
+
+        // Check SSO access (should be available in management account)
+        const ssoResponse = await fetch(
+          `/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`,
+          {
+            headers: createAuthHeaders(),
+            cache: 'no-store',
+          }
+        );
+        const ssoData = await ssoResponse.json();
+        const hasSSOAccess = ssoResponse.ok && ssoData.success && Array.isArray(ssoData.data);
+
         return {
-          hasAccess: response.ok && data.success && Array.isArray(data.data),
-          error: !response.ok || !data.success ? data.error : undefined
+          hasAccess: hasOrgAccess && hasSSOAccess,
+          error: !hasSSOAccess ? (ssoData.error || 'Identity Center not available') : undefined
         };
       };
 
-      // Check SSO access
-      const checkSSO = async () => {
-          const response = await fetch(
-            `/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`,
-            {
-              headers: createAuthHeaders(),
-              cache: 'no-store',
-            }
-          );
-          const data = await response.json();
-          return {
-            hasAccess: response.ok && data.success && Array.isArray(data.data),
-            error: !response.ok || !data.success ? (data.error || 'SSO check failed') : undefined
-          };
-      };
-
-      // Run checks in parallel
-      const [orgResult, ssoResult] = await Promise.all([
-        checkOrganization().catch(() => ({ hasAccess: false, error: 'Failed to check organization access' })),
-        checkSSO().catch(() => ({ hasAccess: false, error: 'Failed to check SSO access' })),
-      ]);
+      const managementResult = await checkManagement().catch(() => ({ 
+        hasAccess: false, 
+        error: 'Failed to check management account access' 
+      }));
 
       setCapabilities({
-        hasOrganizationAccess: orgResult.hasAccess,
-        hasSSOAccess: ssoResult.hasAccess,
+        hasManagementAccess: managementResult.hasAccess,
+        hasIAMAccess: true, // IAM always available
         isChecking: false,
-        organizationError: orgResult.error,
-        ssoError: ssoResult.error,
+        managementError: managementResult.error,
       });
     };
 

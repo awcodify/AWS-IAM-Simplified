@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 
-export default function OrganizationPage() {
+export default function IdentityCenterPage() {
   const router = useRouter();
 
   useEffect(() => {

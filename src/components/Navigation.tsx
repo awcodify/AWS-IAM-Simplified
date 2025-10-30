@@ -2,60 +2,123 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, Shield, AlertTriangle, Settings } from 'lucide-react';
+import { Home, Users, Shield, AlertTriangle, Settings, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRegion } from '@/contexts/RegionContext';
+import { useAccountCapabilities } from '@/hooks/useAccountCapabilities';
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  requiresCapability?: 'management' | 'iam';
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
 
 export default function Navigation() {
   const pathname = usePathname();
   const { session } = useAuth();
+  const { awsRegion, ssoRegion } = useRegion();
+  const capabilities = useAccountCapabilities(awsRegion, ssoRegion);
 
-  const navigationItems = [
+  const navigationGroups: NavGroup[] = [
     {
-      href: '/',
-      label: 'Dashboard',
-      icon: Home
+      label: 'General',
+      items: [
+        {
+          href: '/',
+          label: 'Dashboard',
+          icon: Home
+        }
+      ]
     },
     {
-      href: '/organization',
-      label: 'Organization',
-      icon: Users
+      label: 'Management Account',
+      items: [
+        {
+          href: '/accounts/management',
+          label: 'Organization & SSO',
+          icon: Building2,
+          requiresCapability: 'management'
+        },
+        {
+          href: '/permission-sets',
+          label: 'Permission Sets',
+          icon: Shield,
+          requiresCapability: 'management'
+        },
+        {
+          href: '/risk-analysis',
+          label: 'Risk Analysis',
+          icon: AlertTriangle,
+          requiresCapability: 'management'
+        }
+      ]
     },
     {
-      href: '/permission-sets',
-      label: 'Permission Sets',
-      icon: Shield
-    },
-    {
-      href: '/risk-analysis',
-      label: 'Risk Analysis',
-      icon: AlertTriangle
+      label: 'IAM',
+      items: [
+        {
+          href: '/accounts/iam',
+          label: 'IAM (Current)',
+          icon: Users,
+          requiresCapability: 'iam'
+        }
+      ]
     }
   ];
+
+  const hasCapability = (requirement?: 'management' | 'iam') => {
+    if (!requirement) return true;
+    if (requirement === 'management') return capabilities.hasManagementAccess;
+    if (requirement === 'iam') return capabilities.hasIAMAccess;
+    return false;
+  };
 
   return (
     <div className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
-          <nav className="flex space-x-8">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center space-x-2 py-4 text-sm font-medium border-b-2 transition-colors duration-200 ${
-                    isActive
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+          <nav className="flex space-x-1">
+            {navigationGroups.map((group, groupIndex) => (
+              <div key={groupIndex} className="flex items-center">
+                {groupIndex > 0 && (
+                  <div className="h-8 w-px bg-gray-200 mx-2" />
+                )}
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  const hasAccess = hasCapability(item.requiresCapability);
+                  const isDisabled = item.requiresCapability && !hasAccess;
+                  
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center space-x-2 py-4 px-3 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                        isActive
+                          ? 'border-blue-500 text-blue-600'
+                          : isDisabled
+                          ? 'border-transparent text-gray-400 cursor-not-allowed opacity-50'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                      onClick={(e) => {
+                        if (isDisabled) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           {/* Settings Section */}
