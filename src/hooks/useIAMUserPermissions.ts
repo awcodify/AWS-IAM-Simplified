@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createAuthHeaders } from '@/lib/credentials';
 import type { UserPermissions } from '@/types/aws';
 
@@ -20,7 +20,7 @@ export function useIAMUserPermissions(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPermissions = async () => {
+  const fetchPermissions = useCallback(async () => {
     if (!userName) {
       setPermissions(null);
       return;
@@ -49,11 +49,11 @@ export function useIAMUserPermissions(
     const data = await response.json();
     setPermissions(data.permissions);
     setLoading(false);
-  };
+  }, [userName, region]);
 
   useEffect(() => {
     fetchPermissions();
-  }, [userName, region]);
+  }, [fetchPermissions]);
 
   return {
     permissions,
