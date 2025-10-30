@@ -13,9 +13,10 @@ import {
   GetPolicyVersionCommand,
   ListAttachedGroupPoliciesCommand,
   ListGroupPoliciesCommand,
-  GetGroupPolicyCommand
+  GetGroupPolicyCommand,
+  ListAccessKeysCommand
 } from '@aws-sdk/client-iam';
-import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission } from '@/types/aws';
+import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission, AccessKey } from '@/types/aws';
 import { safeAsync } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 
@@ -366,7 +367,28 @@ export class UserService {
       },
       attachedPolicies,
       inlinePolicies,
-      groups: groupsWithPolicies
+      groups: groupsWithPolicies,
+      accessKeys: await this.getAccessKeys(userName)
     };
+  }
+
+  /**
+   * Get access keys for a user
+   */
+  async getAccessKeys(userName: string): Promise<AccessKey[]> {
+    const command = new ListAccessKeysCommand({ UserName: userName });
+    const result = await safeAsync(this.iamClient.send(command));
+    
+    if (!result.success) {
+      console.warn(`Failed to list access keys for ${userName}:`, result.error);
+      return [];
+    }
+
+    return (result.data.AccessKeyMetadata || []).map(key => ({
+      AccessKeyId: key.AccessKeyId || '',
+      Status: (key.Status as 'Active' | 'Inactive') || 'Inactive',
+      CreateDate: key.CreateDate || new Date(),
+      UserName: key.UserName || userName
+    }));
   }
 }

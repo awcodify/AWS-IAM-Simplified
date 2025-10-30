@@ -793,6 +793,45 @@ function IAMContent() {
                                   </div>
                                 )}
                               </div>
+
+                              {/* Access Keys */}
+                              <div>
+                                <h6 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
+                                  <Key className="w-3 h-3 mr-1.5" />
+                                  Access Keys
+                                </h6>
+                                {permissions.accessKeys && permissions.accessKeys.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {permissions.accessKeys.map((accessKey, idx) => (
+                                      <div 
+                                        key={idx}
+                                        className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 hover:bg-orange-100 transition-colors"
+                                      >
+                                        <div className="flex items-start justify-between mb-1">
+                                          <p className="font-mono text-xs font-semibold text-orange-900">
+                                            {accessKey.AccessKeyId}
+                                          </p>
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                            accessKey.Status === 'Active' 
+                                              ? 'bg-green-100 text-green-800' 
+                                              : 'bg-gray-100 text-gray-800'
+                                          }`}>
+                                            {accessKey.Status}
+                                          </span>
+                                        </div>
+                                        <p className="text-[10px] text-orange-700">
+                                          Created: {new Date(accessKey.CreateDate).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                    <Key className="w-4 h-4 text-gray-400 mx-auto mb-1" />
+                                    <p className="text-xs text-gray-500">No access keys</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -825,81 +864,6 @@ function IAMContent() {
           </div>
         </div>
 
-        {/* IAM Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* IAM Users */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="bg-blue-100 rounded-lg p-3 mr-4">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">IAM Users</h3>
-                <p className="text-sm text-gray-600">View and manage IAM users</p>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600">Coming soon</p>
-              <p className="text-xs text-gray-500 mt-1">List and manage IAM users in this account</p>
-            </div>
-          </div>
-
-          {/* IAM Roles */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="bg-purple-100 rounded-lg p-3 mr-4">
-                <Shield className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">IAM Roles</h3>
-                <p className="text-sm text-gray-600">View and manage IAM roles</p>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <Shield className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600">Coming soon</p>
-              <p className="text-xs text-gray-500 mt-1">List and manage IAM roles in this account</p>
-            </div>
-          </div>
-
-          {/* IAM Policies */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="bg-emerald-100 rounded-lg p-3 mr-4">
-                <FileText className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">IAM Policies</h3>
-                <p className="text-sm text-gray-600">View and manage IAM policies</p>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600">Coming soon</p>
-              <p className="text-xs text-gray-500 mt-1">List and analyze IAM policies</p>
-            </div>
-          </div>
-
-          {/* Access Keys */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="bg-orange-100 rounded-lg p-3 mr-4">
-                <Key className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Access Keys</h3>
-                <p className="text-sm text-gray-600">Manage IAM user access keys</p>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <Key className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600">Coming soon</p>
-              <p className="text-xs text-gray-500 mt-1">View and rotate access keys</p>
-            </div>
-          </div>
-        </div>
-
         {/* Info Card */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <div className="flex">
@@ -911,11 +875,12 @@ function IAMContent() {
               <div className="mt-2 text-sm text-blue-800">
                 <p>
                   IAM (Identity and Access Management) features are available in <strong>any AWS account</strong>.
-                  These features allow you to manage local users, roles, and policies within the current account.
+                  View IAM users with their complete permissions including policies, groups, and access keys.
                 </p>
                 <ul className="list-disc list-inside mt-2 space-y-1">
                   <li>Works in both management and member accounts</li>
-                  <li>Manages resources specific to this account</li>
+                  <li>Shows detailed permissions for each user</li>
+                  <li>Displays policies, groups, and access keys</li>
                   <li>Different from organization-wide Identity Center (SSO)</li>
                 </ul>
               </div>
