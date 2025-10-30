@@ -76,11 +76,11 @@ function ManagementAccountContent() {
     setLoadingBulkAccess(false);
   }, [awsRegion]);
 
-  const fetchData = useCallback(async (page: number = 1, search: string = '', isNewSearch: boolean = false) => {
+  const fetchData = useCallback(async (page: number = 1, search: string = '', shouldClearData: boolean = false) => {
     setLoading(true);
     setError(null);
     
-    if (isNewSearch || isInitialLoad) {
+    if (shouldClearData) {
       setUsers([]);
       setPagination(null);
     }
@@ -100,7 +100,6 @@ function ManagementAccountContent() {
     } else {
       setUsers(usersData.data || []);
       setPagination(usersData.pagination || null);
-      setIsInitialLoad(false);
 
       if (usersData.data && usersData.data.length > 0) {
         loadBulkAccessForUsers(usersData.data);
@@ -108,7 +107,7 @@ function ManagementAccountContent() {
     }
     
     setLoading(false);
-  }, [awsRegion, isInitialLoad, loadBulkAccessForUsers]);
+  }, [awsRegion, loadBulkAccessForUsers]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -149,7 +148,8 @@ function ManagementAccountContent() {
   };
 
   useEffect(() => {
-    if (capabilities.hasManagementAccess) {
+    if (capabilities.hasManagementAccess && isInitialLoad) {
+      setIsInitialLoad(false);
       fetchData(1, '', true);
     }
     
@@ -161,7 +161,7 @@ function ManagementAccountContent() {
         clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [capabilities.hasManagementAccess, fetchData]);
+  }, [capabilities.hasManagementAccess, isInitialLoad, fetchData]);
 
   const actions = (
     <>
