@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import UserAccessTable from '@/components/UserAccessTable';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import AccountRequirementBanner from '@/components/AccountRequirementBanner';
+import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { useOrganizationAccounts } from '@/hooks/useOrganizationAccounts';
 import { createAuthHeaders } from '@/lib/credentials';
@@ -13,6 +14,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { OrganizationUser, PaginationInfo } from '@/types/aws';
 
 export default function OrganizationPage() {
+  return (
+    <AuthGuard>
+      <OrganizationContent />
+    </AuthGuard>
+  );
+}
+
+function OrganizationContent() {
   const { awsRegion } = useRegion();
   const { accounts } = useOrganizationAccounts();
   const [users, setUsers] = useState<OrganizationUser[]>([]);

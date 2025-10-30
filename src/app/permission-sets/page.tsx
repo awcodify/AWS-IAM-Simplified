@@ -7,6 +7,7 @@ import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import AccountRequirementBanner from '@/components/AccountRequirementBanner';
+import AuthGuard from '@/components/AuthGuard';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
 
 interface PermissionSet {
@@ -16,6 +17,14 @@ interface PermissionSet {
 }
 
 export default function PermissionSetsPage() {
+  return (
+    <AuthGuard>
+      <PermissionSetsContent />
+    </AuthGuard>
+  );
+}
+
+function PermissionSetsContent() {
   const { permissionSets, loading, error } = usePermissionSets();
   const [searchTerm, setSearchTerm] = useState('');
 

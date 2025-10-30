@@ -7,11 +7,20 @@ import Link from 'next/link';
 import PageLayout from '@/components/PageLayout';
 import PermissionSetDetails from '@/components/PermissionSetDetails';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { createAuthHeaders } from '@/lib/credentials';
 import type { PermissionSetDetails as PermissionSetDetailsType } from '@/types/aws';
 
 export default function PermissionSetPage() {
+  return (
+    <AuthGuard>
+      <PermissionSetContent />
+    </AuthGuard>
+  );
+}
+
+function PermissionSetContent() {
   const { awsRegion, ssoRegion } = useRegion();
   const params = useParams();
   const searchParams = useSearchParams();

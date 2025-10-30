@@ -8,11 +8,20 @@ import PageHeader from '@/components/PageHeader';
 import RiskDashboard from '@/components/RiskDashboard';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import AccountRequirementBanner from '@/components/AccountRequirementBanner';
+import AuthGuard from '@/components/AuthGuard';
 import { useRegion } from '@/contexts/RegionContext';
 import { useStreamingRiskAnalysis } from '@/hooks/useStreamingRiskAnalysis';
 import { usePermissionSets } from '@/hooks/usePermissionSets';
 
 export default function RiskAnalysisPage() {
+  return (
+    <AuthGuard>
+      <RiskAnalysisContent />
+    </AuthGuard>
+  );
+}
+
+function RiskAnalysisContent() {
   const { awsRegion, ssoRegion } = useRegion();
   const { permissionSets, loading, error: permissionSetsError } = usePermissionSets();
   const [userDismissed, setUserDismissed] = useState(false);
