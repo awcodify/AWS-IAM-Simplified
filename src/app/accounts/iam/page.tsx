@@ -408,7 +408,7 @@ function IAMContent() {
                                   <p className="text-lg font-bold text-blue-900">
                                     {permissions.attachedPolicies.length}
                                   </p>
-                                  <p className="text-[10px] text-blue-700 font-medium">Policies</p>
+                                  <p className="text-[10px] text-blue-700 font-medium">Direct Policies</p>
                                 </div>
                                 <div className="bg-purple-50 rounded-lg p-2 text-center">
                                   <p className="text-lg font-bold text-purple-900">
@@ -420,7 +420,16 @@ function IAMContent() {
                                   <p className="text-lg font-bold text-emerald-900">
                                     {permissions.groups.length}
                                   </p>
-                                  <p className="text-[10px] text-emerald-700 font-medium">Groups</p>
+                                  <p className="text-[10px] text-emerald-700 font-medium">
+                                    Groups
+                                    {(() => {
+                                      const groupPoliciesCount = permissions.groups.reduce(
+                                        (sum, g) => sum + (g.attachedPolicies?.length || 0) + (g.inlinePolicies?.length || 0), 
+                                        0
+                                      );
+                                      return groupPoliciesCount > 0 ? ` (${groupPoliciesCount} policies)` : '';
+                                    })()}
+                                  </p>
                                 </div>
                               </div>
 
@@ -630,20 +639,152 @@ function IAMContent() {
                                   Group Memberships
                                 </h6>
                                 {permissions.groups.length > 0 ? (
-                                  <div className="space-y-1.5">
-                                    {permissions.groups.map((group, idx) => (
-                                      <div 
-                                        key={idx}
-                                        className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs hover:bg-emerald-100 transition-colors"
-                                      >
-                                        <p className="font-semibold text-emerald-900 mb-0.5">
-                                          {group.GroupName}
-                                        </p>
-                                        <p className="text-emerald-700 font-mono text-[10px] break-all">
-                                          {group.Arn}
-                                        </p>
-                                      </div>
-                                    ))}
+                                  <div className="space-y-2">
+                                    {permissions.groups.map((group, idx) => {
+                                      const groupId = `group-${idx}`;
+                                      const isExpanded = expandedPolicies.has(groupId);
+                                      const hasPolicies = (group.attachedPolicies && group.attachedPolicies.length > 0) || 
+                                                         (group.inlinePolicies && group.inlinePolicies.length > 0);
+                                      
+                                      return (
+                                        <div 
+                                          key={idx}
+                                          className="bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                                        >
+                                          <button
+                                            onClick={() => hasPolicies && togglePolicy(groupId)}
+                                            className="w-full p-2.5 text-left"
+                                          >
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-emerald-900 mb-0.5 text-xs">
+                                                  {group.GroupName}
+                                                </p>
+                                                <p className="text-emerald-700 font-mono text-[10px] break-all">
+                                                  {group.Arn}
+                                                </p>
+                                                {hasPolicies && (
+                                                  <p className="text-[10px] text-emerald-600 mt-1">
+                                                    {(group.attachedPolicies?.length || 0) + (group.inlinePolicies?.length || 0)} policies
+                                                  </p>
+                                                )}
+                                              </div>
+                                              {hasPolicies && (
+                                                <div className="ml-2 flex-shrink-0">
+                                                  {isExpanded ? (
+                                                    <ChevronDown className="w-4 h-4 text-emerald-600" />
+                                                  ) : (
+                                                    <ChevronRight className="w-4 h-4 text-emerald-600" />
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </button>
+                                          
+                                          {/* Show group policies when expanded */}
+                                          {isExpanded && hasPolicies && (
+                                            <div className="px-2.5 pb-2.5 pt-0 border-t border-emerald-200">
+                                              <div className="space-y-2 mt-2">
+                                                {/* Attached Policies */}
+                                                {group.attachedPolicies && group.attachedPolicies.length > 0 && (
+                                                  <div>
+                                                    <p className="text-[10px] font-semibold text-emerald-800 mb-1">Attached Policies:</p>
+                                                    {group.attachedPolicies.map((policy, pIdx) => (
+                                                      <div key={pIdx} className="bg-white bg-opacity-60 rounded p-2 mb-1">
+                                                        <p className="text-[10px] font-semibold text-gray-900 mb-0.5">
+                                                          {policy.PolicyName}
+                                                        </p>
+                                                        <p className="text-[9px] text-gray-600 font-mono break-all mb-1">
+                                                          {policy.PolicyArn}
+                                                        </p>
+                                                        {policy.permissions && policy.permissions.length > 0 && (
+                                                          <div className="space-y-1 mt-1.5 pl-2 border-l-2 border-emerald-300">
+                                                            {policy.permissions.map((perm, permIdx) => (
+                                                              <div key={permIdx} className="bg-gray-50 rounded p-1.5">
+                                                                <span className={`inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold ${
+                                                                  perm.effect === 'Allow' 
+                                                                    ? 'bg-green-100 text-green-800' 
+                                                                    : 'bg-red-100 text-red-800'
+                                                                }`}>
+                                                                  {perm.effect}
+                                                                </span>
+                                                                <div className="mt-1 space-y-0.5">
+                                                                  <div className="flex flex-wrap gap-0.5">
+                                                                    {perm.actions.slice(0, 3).map((action, actIdx) => (
+                                                                      <span 
+                                                                        key={actIdx}
+                                                                        className="inline-block bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-[8px] font-mono"
+                                                                      >
+                                                                        {action}
+                                                                      </span>
+                                                                    ))}
+                                                                    {perm.actions.length > 3 && (
+                                                                      <span className="text-[8px] text-gray-500">
+                                                                        +{perm.actions.length - 3}
+                                                                      </span>
+                                                                    )}
+                                                                  </div>
+                                                                </div>
+                                                              </div>
+                                                            ))}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+
+                                                {/* Inline Policies */}
+                                                {group.inlinePolicies && group.inlinePolicies.length > 0 && (
+                                                  <div>
+                                                    <p className="text-[10px] font-semibold text-emerald-800 mb-1">Inline Policies:</p>
+                                                    {group.inlinePolicies.map((policy, pIdx) => (
+                                                      <div key={pIdx} className="bg-white bg-opacity-60 rounded p-2 mb-1">
+                                                        <p className="text-[10px] font-semibold text-gray-900 mb-1">
+                                                          {policy.PolicyName}
+                                                        </p>
+                                                        {policy.permissions && policy.permissions.length > 0 && (
+                                                          <div className="space-y-1 pl-2 border-l-2 border-emerald-300">
+                                                            {policy.permissions.map((perm, permIdx) => (
+                                                              <div key={permIdx} className="bg-gray-50 rounded p-1.5">
+                                                                <span className={`inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold ${
+                                                                  perm.effect === 'Allow' 
+                                                                    ? 'bg-green-100 text-green-800' 
+                                                                    : 'bg-red-100 text-red-800'
+                                                                }`}>
+                                                                  {perm.effect}
+                                                                </span>
+                                                                <div className="mt-1 space-y-0.5">
+                                                                  <div className="flex flex-wrap gap-0.5">
+                                                                    {perm.actions.slice(0, 3).map((action, actIdx) => (
+                                                                      <span 
+                                                                        key={actIdx}
+                                                                        className="inline-block bg-purple-100 text-purple-800 px-1 py-0.5 rounded text-[8px] font-mono"
+                                                                      >
+                                                                        {action}
+                                                                      </span>
+                                                                    ))}
+                                                                    {perm.actions.length > 3 && (
+                                                                      <span className="text-[8px] text-gray-500">
+                                                                        +{perm.actions.length - 3}
+                                                                      </span>
+                                                                    )}
+                                                                  </div>
+                                                                </div>
+                                                              </div>
+                                                            ))}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 ) : (
                                   <div className="bg-gray-50 rounded-lg p-3 text-center">
