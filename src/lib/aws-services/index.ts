@@ -156,28 +156,34 @@ export class SimplifiedAWSService {
    * Get account access for a specific user
    */
   async getUserAccountAccess(userId: string, ssoRegion?: string): Promise<CrossAccountUserAccess[]> {
-    const ssoInstances = await this.ssoService.getSSOInstances();
+    // If a different SSO region is specified, use a regional service
+    const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+    
+    const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
       console.warn('No SSO instances found');
       return [];
     }
 
     const accounts = await this.organizationService.listAccounts();
-    return this.ssoService.getUserAccountAccess(userId, ssoInstances[0].InstanceArn, accounts);
+    return ssoService.getUserAccountAccess(userId, ssoInstances[0].InstanceArn, accounts);
   }
 
   /**
    * Get account access for multiple users in bulk
    */
   async getBulkUserAccountAccess(userIds: string[], ssoRegion?: string): Promise<Map<string, CrossAccountUserAccess[]>> {
-    const ssoInstances = await this.ssoService.getSSOInstances();
+    // If a different SSO region is specified, use a regional service
+    const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+    
+    const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
       console.warn('No SSO instances found');
       return new Map();
     }
 
     const accounts = await this.organizationService.listAccounts();
-    return this.ssoService.getBulkUserAccountAccess(userIds, ssoInstances[0].InstanceArn, accounts);
+    return ssoService.getBulkUserAccountAccess(userIds, ssoInstances[0].InstanceArn, accounts);
   }
 
   /**
