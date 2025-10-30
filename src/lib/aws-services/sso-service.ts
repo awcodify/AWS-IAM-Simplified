@@ -28,6 +28,50 @@ export class SSOService {
   }
 
   /**
+   * Delay helper for rate limiting
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Retry logic with exponential backoff for throttling errors
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    initialDelay = 1000
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const result = await safeAsync(fn());
+      
+      if (result.success) {
+        return result.data;
+      }
+      
+      lastError = result.error;
+      
+      // Check if it's a throttling error
+      const errorName = (result.error as any)?.name || (result.error as any)?.__type;
+      if (errorName === 'ThrottlingException' || errorName === 'TooManyRequestsException') {
+        if (attempt < maxRetries) {
+          const delayMs = initialDelay * Math.pow(2, attempt);
+          console.log(`Throttled, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+          await this.delay(delayMs);
+          continue;
+        }
+      } else {
+        // Not a throttling error, don't retry
+        throw result.error;
+      }
+    }
+    
+    throw lastError;
+  }
+
+  /**
    * Get all SSO instances in the current region
    */
   async getSSOInstances() {
@@ -61,9 +105,9 @@ export class SSOService {
     const permissionSetArns = result.data.PermissionSets || [];
     const permissionSets: Array<{ arn: string; name: string; description?: string }> = [];
 
-    // Get details for each permission set
+    // Get details for each permission set with rate limiting
     for (const arn of permissionSetArns) {
-      const details = await this.getPermissionSetDetails(instanceArn, arn);
+      const details = await this.getPermissionSetDetailsWithRetry(instanceArn, arn);
       const optional = Optional.of(details);
       optional.ifPresent(d => {
         permissionSets.push({
@@ -72,9 +116,26 @@ export class SSOService {
           description: d.description
         });
       });
+      
+      // Add delay to avoid rate limiting (200ms between calls)
+      await this.delay(200);
     }
 
     return permissionSets;
+  }
+
+  /**
+   * Get detailed information about a permission set with retry logic
+   */
+  private async getPermissionSetDetailsWithRetry(instanceArn: string, permissionSetArn: string): Promise<PermissionSetDetails | null> {
+    try {
+      return await this.retryWithBackoff(() => 
+        this.getPermissionSetDetails(instanceArn, permissionSetArn)
+      );
+    } catch (error) {
+      console.warn(`Could not get details for permission set ${permissionSetArn}:`, error);
+      return null;
+    }
   }
 
   /**
@@ -90,8 +151,7 @@ export class SSOService {
     const describeResult = await safeAsync(this.ssoAdminClient.send(describeCommand));
     
     if (!describeResult.success) {
-      console.warn(`Could not get details for permission set ${permissionSetArn}:`, describeResult.error);
-      return null;
+      throw describeResult.error;
     }
     
     const permissionSet = describeResult.data.PermissionSet;
