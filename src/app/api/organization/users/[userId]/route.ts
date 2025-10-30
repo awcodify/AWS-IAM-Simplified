@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import type { CrossAccountUserAccess } from '@/types/aws';
 
 interface UserAccountAccessResponse {
@@ -25,7 +25,7 @@ export async function GET(
     }, { status: 400 });
   }
 
-  const awsService = new AWSService(region);
+  const awsService = new SimplifiedAWSService(region);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(

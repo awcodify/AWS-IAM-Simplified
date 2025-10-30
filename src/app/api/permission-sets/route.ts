@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import { safeAsync } from '@/lib/result';
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }, { status: 401 });
   }
 
-  const awsService = new AWSService(ssoRegion, credentials);
+  const awsService = new SimplifiedAWSService(ssoRegion);
   
   // Get SSO instance
   const ssoInstancesResult = await safeAsync(awsService.getSSOInstances(ssoRegion));
@@ -43,8 +43,7 @@ export async function GET(request: NextRequest) {
     }, { status: 404 });
   }
 
-  const ssoInstance = ssoInstancesResult.data[0];
-  const permissionSetsResult = await safeAsync(awsService.getPermissionSets(ssoInstance.InstanceArn));
+  const permissionSetsResult = await safeAsync(awsService.getPermissionSets());
   
   if (!permissionSetsResult.success) {
     console.error('Error fetching permission sets:', permissionSetsResult.error);

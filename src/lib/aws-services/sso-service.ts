@@ -5,9 +5,11 @@ import {
   DescribePermissionSetCommand,
   ListManagedPoliciesInPermissionSetCommand,
   GetInlinePolicyForPermissionSetCommand,
-  ListAccountAssignmentsCommand
+  ListAccountAssignmentsCommand,
+  ListAccountAssignmentsForPrincipalCommand,
+  ListCustomerManagedPolicyReferencesInPermissionSetCommand
 } from '@aws-sdk/client-sso-admin';
-import type { PermissionSetDetails } from '@/types/aws';
+import type { PermissionSetDetails, CrossAccountUserAccess, OrganizationAccount } from '@/types/aws';
 
 /**
  * Simplified service for SSO-related operations
@@ -92,6 +94,22 @@ export class SSOService {
       });
       const managedPoliciesResponse = await this.ssoAdminClient.send(managedPoliciesCommand);
 
+      // Get customer managed policies
+      let customerManagedPolicies: Array<{ name: string; path: string }> = [];
+      try {
+        const customerPoliciesCommand = new ListCustomerManagedPolicyReferencesInPermissionSetCommand({
+          InstanceArn: instanceArn,
+          PermissionSetArn: permissionSetArn
+        });
+        const customerPoliciesResponse = await this.ssoAdminClient.send(customerPoliciesCommand);
+        customerManagedPolicies = customerPoliciesResponse.CustomerManagedPolicyReferences?.map(p => ({
+          name: p.Name || '',
+          path: p.Path || '/'
+        })) || [];
+      } catch {
+        // No customer managed policies or access denied
+      }
+
       // Get inline policy
       let inlinePolicyDocument = null;
       try {
@@ -111,6 +129,7 @@ export class SSOService {
         description: permissionSet.Description,
         sessionDuration: permissionSet.SessionDuration,
         managedPolicies: (managedPoliciesResponse.AttachedManagedPolicies || []).map(p => p.Arn!),
+        customerManagedPolicies,
         inlinePolicyDocument: inlinePolicyDocument || undefined
       };
     } catch (error) {
@@ -120,19 +139,187 @@ export class SSOService {
   }
 
   /**
-   * Check which accounts a user has access to via permission sets
-   * Note: This is a simplified implementation that would need enhancement
+   * Get account access for a specific user
    */
-  async getUserAccountAccess(userId: string, instanceArn: string) {
+  async getUserAccountAccess(
+    userId: string, 
+    instanceArn: string, 
+    accounts: OrganizationAccount[]
+  ): Promise<CrossAccountUserAccess[]> {
+    console.log(`Getting account access for user: ${userId}`);
+    
     try {
-      // In a real implementation, this would iterate through all organization accounts
-      // and check permission set assignments for the user
-      console.log(`Getting account access for user ${userId} in instance ${instanceArn}`);
-      return {};
+      const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
+        InstanceArn: instanceArn,
+        PrincipalType: 'USER',
+        PrincipalId: userId
+      });
+      
+      const response = await this.ssoAdminClient.send(assignmentsCommand);
+      const assignments = response.AccountAssignments || [];
+      console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+      
+      // Group assignments by account ID
+      const accountAssignments = new Map<string, string[]>();
+      
+      assignments.forEach((assignment) => {
+        if (assignment.AccountId && assignment.PermissionSetArn) {
+          const accountId = assignment.AccountId;
+          const existingRoles = accountAssignments.get(accountId) || [];
+          existingRoles.push(assignment.PermissionSetArn);
+          accountAssignments.set(accountId, existingRoles);
+        }
+      });
+      
+      // Create account map for names
+      const accountMap = new Map(accounts.map(acc => [acc.id, acc.name]));
+      
+      // Create result for all accounts
+      const accountAccess: CrossAccountUserAccess[] = accounts.map(account => {
+        const roles = accountAssignments.get(account.id) || [];
+        
+        return {
+          accountId: account.id,
+          accountName: account.name,
+          hasAccess: roles.length > 0,
+          accessType: 'SSO' as const,
+          roles: roles.length > 0 ? roles : undefined,
+          lastChecked: new Date()
+        };
+      });
+      
+      return accountAccess;
     } catch (error) {
-      console.warn(`Could not get account access for user ${userId}:`, error);
-      return {};
+      console.error(`Error getting account access for user ${userId}:`, error);
+      return accounts.map(account => ({
+        accountId: account.id,
+        accountName: account.name,
+        hasAccess: false,
+        accessType: 'SSO' as const,
+        lastChecked: new Date()
+      }));
     }
+  }
+
+  /**
+   * Get account access for multiple users in bulk
+   */
+  async getBulkUserAccountAccess(
+    userIds: string[], 
+    instanceArn: string, 
+    accounts: OrganizationAccount[]
+  ): Promise<Map<string, CrossAccountUserAccess[]>> {
+    console.log(`Getting account access for ${userIds.length} users in bulk`);
+    
+    const userAccessMap = new Map<string, CrossAccountUserAccess[]>();
+    
+    // Initialize all users with empty access
+    userIds.forEach(userId => {
+      userAccessMap.set(userId, accounts.map(account => ({
+        accountId: account.id,
+        accountName: account.name,
+        hasAccess: false,
+        accessType: 'SSO' as const,
+        roles: [],
+        lastChecked: new Date()
+      })));
+    });
+    
+    // Fetch assignments for all users in parallel
+    const assignmentPromises = userIds.map(async (userId) => {
+      const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
+        InstanceArn: instanceArn,
+        PrincipalType: 'USER',
+        PrincipalId: userId
+      });
+      
+      try {
+        const response = await this.ssoAdminClient.send(assignmentsCommand);
+        const assignments = response.AccountAssignments || [];
+        console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+        
+        // Group assignments by account ID for this user
+        const accountAssignments = new Map<string, string[]>();
+        assignments.forEach((assignment) => {
+          if (assignment.AccountId && assignment.PermissionSetArn) {
+            const accountId = assignment.AccountId;
+            const existingRoles = accountAssignments.get(accountId) || [];
+            existingRoles.push(assignment.PermissionSetArn);
+            accountAssignments.set(accountId, existingRoles);
+          }
+        });
+        
+        // Update the user's access map
+        const userAccess = userAccessMap.get(userId) || [];
+        userAccess.forEach(access => {
+          const roles = accountAssignments.get(access.accountId) || [];
+          if (roles.length > 0) {
+            access.hasAccess = true;
+            access.roles = roles;
+          }
+        });
+        
+        return { userId, success: true };
+      } catch (error) {
+        console.error(`Error getting account assignments for user ${userId}:`, error);
+        return { userId, success: false };
+      }
+    });
+    
+    const results = await Promise.all(assignmentPromises);
+    const successCount = results.filter(r => r.success).length;
+    console.log(`Successfully fetched access for ${successCount}/${userIds.length} users`);
+    
+    // Try to enhance with permission set names (sample only for performance)
+    const permissionSetNameMap = new Map<string, string>();
+    const uniquePermissionSetArns = new Set<string>();
+    
+    userAccessMap.forEach(userAccess => {
+      userAccess.forEach(access => {
+        if (access.roles) {
+          access.roles.forEach(arn => uniquePermissionSetArns.add(arn));
+        }
+      });
+    });
+    
+    console.log(`Found ${uniquePermissionSetArns.size} unique permission sets`);
+    
+    // Only fetch names for a sample to avoid too many API calls
+    const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
+    const namePromises = sampleArns.map(async (arn) => {
+      try {
+        const describeCommand = new DescribePermissionSetCommand({
+          InstanceArn: instanceArn,
+          PermissionSetArn: arn
+        });
+        const response = await this.ssoAdminClient.send(describeCommand);
+        const name = response.PermissionSet?.Name || '';
+        if (name) {
+          permissionSetNameMap.set(arn, name);
+        }
+        return { arn, name };
+      } catch (error) {
+        console.log(`Could not fetch name for permission set ${arn}:`, error);
+        return { arn, name: '' };
+      }
+    });
+    
+    await Promise.all(namePromises);
+    
+    // Enhance the response with permission set names where available
+    userAccessMap.forEach(userAccess => {
+      userAccess.forEach(access => {
+        if (access.roles) {
+          access.permissionSets = access.roles.map(arn => ({
+            name: permissionSetNameMap.get(arn) || arn.split('/').pop() || arn,
+            arn: arn,
+            description: permissionSetNameMap.get(arn) ? undefined : 'Name not available'
+          }));
+        }
+      });
+    });
+    
+    return userAccessMap;
   }
 
   /**

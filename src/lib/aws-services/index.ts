@@ -1,7 +1,14 @@
 import { SSOService } from './sso-service';
 import { OrganizationService } from './organization-service';
 import { UserService } from './user-service';
-import type { OrganizationUser, OrganizationAccount, PermissionSetDetails } from '@/types/aws';
+import { AccountService } from './account-service';
+import type { OrganizationUser, OrganizationAccount, PermissionSetDetails, AccountInfo, CrossAccountUserAccess } from '@/types/aws';
+
+// Export individual services for direct use
+export { SSOService } from './sso-service';
+export { OrganizationService } from './organization-service';
+export { UserService } from './user-service';
+export { AccountService } from './account-service';
 
 /**
  * Simplified main AWS service that orchestrates other services
@@ -10,11 +17,13 @@ export class SimplifiedAWSService {
   private ssoService: SSOService;
   private organizationService: OrganizationService;
   private userService: UserService;
+  private accountService: AccountService;
 
   constructor(region?: string) {
     this.ssoService = new SSOService(region);
     this.organizationService = new OrganizationService(region);
     this.userService = new UserService(region);
+    this.accountService = new AccountService(region);
   }
 
   /**
@@ -73,12 +82,33 @@ export class SimplifiedAWSService {
   /**
    * Get detailed permission set information
    */
-  async getPermissionSetDetails(permissionSetArn: string): Promise<PermissionSetDetails | null> {
+  async getPermissionSetDetails(permissionSetArn: string, ssoRegion?: string): Promise<PermissionSetDetails | null> {
     try {
-      const ssoInstances = await this.ssoService.getSSOInstances();
+      // If a different SSO region is specified, use a regional service
+      const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+      
+      const ssoInstances = await ssoService.getSSOInstances();
       if (ssoInstances.length === 0) return null;
 
-      return this.ssoService.getPermissionSetDetails(ssoInstances[0].InstanceArn, permissionSetArn);
+      return ssoService.getPermissionSetDetails(ssoInstances[0].InstanceArn, permissionSetArn);
+    } catch (error) {
+      console.warn(`Could not get permission set details for ${permissionSetArn}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get detailed permission set information with explicit instance ARN
+   * (for compatibility with legacy code)
+   */
+  async getPermissionSetDetailsWithInstance(
+    instanceArn: string, 
+    permissionSetArn: string, 
+    ssoRegion?: string
+  ): Promise<PermissionSetDetails | null> {
+    try {
+      const ssoService = ssoRegion ? new SSOService(ssoRegion) : this.ssoService;
+      return ssoService.getPermissionSetDetails(instanceArn, permissionSetArn);
     } catch (error) {
       console.warn(`Could not get permission set details for ${permissionSetArn}:`, error);
       return null;
@@ -127,5 +157,76 @@ export class SimplifiedAWSService {
    */
   async getOrganizationInfo() {
     return this.organizationService.getOrganizationInfo();
+  }
+
+  /**
+   * Get current AWS account information
+   */
+  async getAccountInfo(): Promise<AccountInfo> {
+    return this.accountService.getAccountInfo();
+  }
+
+  /**
+   * Test AWS connection
+   */
+  async testConnection(): Promise<boolean> {
+    return this.accountService.testConnection();
+  }
+
+  /**
+   * Get account access for a specific user
+   */
+  async getUserAccountAccess(userId: string, ssoRegion?: string): Promise<CrossAccountUserAccess[]> {
+    try {
+      const ssoInstances = await this.ssoService.getSSOInstances();
+      if (ssoInstances.length === 0) {
+        console.warn('No SSO instances found');
+        return [];
+      }
+
+      const accounts = await this.organizationService.listAccounts();
+      return this.ssoService.getUserAccountAccess(userId, ssoInstances[0].InstanceArn, accounts);
+    } catch (error) {
+      console.warn('Could not get user account access:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get account access for multiple users in bulk
+   */
+  async getBulkUserAccountAccess(userIds: string[], ssoRegion?: string): Promise<Map<string, CrossAccountUserAccess[]>> {
+    try {
+      const ssoInstances = await this.ssoService.getSSOInstances();
+      if (ssoInstances.length === 0) {
+        console.warn('No SSO instances found');
+        return new Map();
+      }
+
+      const accounts = await this.organizationService.listAccounts();
+      return this.ssoService.getBulkUserAccountAccess(userIds, ssoInstances[0].InstanceArn, accounts);
+    } catch (error) {
+      console.warn('Could not get bulk user account access:', error);
+      return new Map();
+    }
+  }
+
+  /**
+   * Get SSO instances
+   */
+  async getSSOInstances(ssoRegion?: string) {
+    // If a different region is specified, create a new SSO service for that region
+    if (ssoRegion) {
+      const regionalSSOService = new SSOService(ssoRegion);
+      return regionalSSOService.getSSOInstances();
+    }
+    return this.ssoService.getSSOInstances();
+  }
+
+  /**
+   * List organization accounts
+   */
+  async listOrganizationAccounts(): Promise<OrganizationAccount[]> {
+    return this.organizationService.listAccounts();
   }
 }

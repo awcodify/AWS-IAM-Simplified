@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import type { CrossAccountUserAccess } from '@/types/aws';
 
 export async function POST(request: Request) {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const awsService = new AWSService(region);
+  const awsService = new SimplifiedAWSService(region);
   const userAccessResult = await awsService.getBulkUserAccountAccess(userIds, ssoRegion);
   
   if (!userAccessResult) {

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 
 export async function POST(request: NextRequest) {
@@ -39,12 +39,12 @@ export async function POST(request: NextRequest) {
       });
 
       // Initialize AWS service
-      const awsService = new AWSService(ssoRegion || region);
+      const awsService = new SimplifiedAWSService(ssoRegion || region);
       let instanceArn = '';
 
       // Get SSO instance
-      const ssoInstances = await awsService.getSSOInstances(ssoRegion || region).catch(error => {
-        console.warn('Could not get SSO instance:', error);
+      const ssoInstances = await awsService.getSSOInstances(ssoRegion || region).catch(() => {
+        console.warn('Could not get SSO instance');
         return [];
       });
 
@@ -72,12 +72,12 @@ export async function POST(request: NextRequest) {
           progress: Math.round(((i) / permissionSets.length) * 100)
         });
 
-        const enrichedPermissionSet = await awsService.getPermissionSetDetails(
+        const enrichedPermissionSet = await awsService.getPermissionSetDetailsWithInstance(
           instanceArn,
           permissionSet.arn,
           ssoRegion || region
-        ).catch(error => {
-          console.warn(`Failed to get details for ${permissionSet.name}:`, error);
+        ).catch(() => {
+          console.warn(`Failed to get details for ${permissionSet.name}`);
           return permissionSet;
         });
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AWSService } from '@/lib/aws-service';
+import { SimplifiedAWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { OrganizationUsersResponse } from '@/types/aws';
 
@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
     }, { status: 401 });
   }
   
-  const awsService = new AWSService(region, credentials);
+  const awsService = new SimplifiedAWSService(region);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(
@@ -36,8 +36,8 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
     }, { status: 401 });
   }
 
-  // Get organization users - use ssoOnly flag to control IAM user fetching
-  const organizationUsers = await awsService.getOrganizationUsers(ssoRegion, !ssoOnly).then(
+  // Get organization users
+  const organizationUsers = await awsService.getOrganizationUsers().then(
     users => users,
     error => {
       console.error('Error in organization users API:', error);
