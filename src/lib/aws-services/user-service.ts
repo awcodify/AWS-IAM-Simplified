@@ -161,23 +161,45 @@ export class UserService {
   }
 
   /**
+   * Safe wrapper for synchronous operations that may throw
+   * This is a minimal exception to the no-try/catch guideline for truly synchronous APIs
+   */
+  private safeSyncOperation<T>(operation: () => T): { success: true; data: T } | { success: false; error: any } {
+    try {
+      const data = operation();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error };
+    }
+  }
+
+  /**
    * Parse policy document and extract permissions
    */
   private parsePolicyDocument(policyDocument: string): PolicyPermission[] {
-    try {
-      const policy = JSON.parse(decodeURIComponent(policyDocument));
-      const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
-      
-      return statements.map((statement: any) => ({
-        effect: statement.Effect || 'Allow',
-        actions: Array.isArray(statement.Action) ? statement.Action : [statement.Action || '*'],
-        resources: Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource || '*'],
-        conditions: statement.Condition
-      }));
-    } catch (error) {
-      console.warn('Failed to parse policy document:', error);
+    // Decode URI component
+    const decodeResult = this.safeSyncOperation(() => decodeURIComponent(policyDocument));
+    if (!decodeResult.success) {
+      console.warn('Failed to decode policy document:', decodeResult.error);
       return [];
     }
+    
+    // Parse JSON
+    const parseResult = this.safeSyncOperation(() => JSON.parse(decodeResult.data));
+    if (!parseResult.success) {
+      console.warn('Failed to parse policy document:', parseResult.error);
+      return [];
+    }
+    
+    const policy = parseResult.data;
+    const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
+    
+    return statements.map((statement: any) => ({
+      effect: statement.Effect || 'Allow',
+      actions: Array.isArray(statement.Action) ? statement.Action : [statement.Action || '*'],
+      resources: Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource || '*'],
+      conditions: statement.Condition
+    }));
   }
 
   /**

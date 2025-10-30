@@ -41,14 +41,14 @@ export class SSOService {
     fn: () => Promise<T>,
     maxRetries = 3,
     initialDelay = 1000
-  ): Promise<T> {
+  ): Promise<{ success: true; data: T } | { success: false; error: any }> {
     let lastError: any;
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const result = await safeAsync(fn());
       
       if (result.success) {
-        return result.data;
+        return { success: true, data: result.data };
       }
       
       lastError = result.error;
@@ -64,11 +64,11 @@ export class SSOService {
         }
       } else {
         // Not a throttling error, don't retry
-        throw result.error;
+        return { success: false, error: result.error };
       }
     }
     
-    throw lastError;
+    return { success: false, error: lastError };
   }
 
   /**
@@ -128,14 +128,16 @@ export class SSOService {
    * Get detailed information about a permission set with retry logic
    */
   private async getPermissionSetDetailsWithRetry(instanceArn: string, permissionSetArn: string): Promise<PermissionSetDetails | null> {
-    try {
-      return await this.retryWithBackoff(() => 
-        this.getPermissionSetDetails(instanceArn, permissionSetArn)
-      );
-    } catch (error) {
-      console.warn(`Could not get details for permission set ${permissionSetArn}:`, error);
+    const result = await this.retryWithBackoff(() => 
+      this.getPermissionSetDetails(instanceArn, permissionSetArn)
+    );
+    
+    if (!result.success) {
+      console.warn(`Could not get details for permission set ${permissionSetArn}:`, result.error);
       return null;
     }
+    
+    return result.data;
   }
 
   /**
@@ -151,7 +153,8 @@ export class SSOService {
     const describeResult = await safeAsync(this.ssoAdminClient.send(describeCommand));
     
     if (!describeResult.success) {
-      throw describeResult.error;
+      console.warn(`Failed to describe permission set ${permissionSetArn}:`, describeResult.error);
+      return null;
     }
     
     const permissionSet = describeResult.data.PermissionSet;
