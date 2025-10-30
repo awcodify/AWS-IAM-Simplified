@@ -213,63 +213,73 @@ export class UserService {
     attachedPolicies: AttachedPolicy[];
     inlinePolicies: InlinePolicy[];
   }> {
-    // Get attached managed policies for the group
-    const attachedPoliciesCommand = new ListAttachedGroupPoliciesCommand({
-      GroupName: groupName
-    });
-    const attachedPoliciesResult = await safeAsync(this.iamClient.send(attachedPoliciesCommand));
-
-    const attachedPoliciesData = attachedPoliciesResult.success 
-      ? (attachedPoliciesResult.data.AttachedPolicies || [])
-      : [];
-    
-    const attachedPoliciesPromises = attachedPoliciesData.map(async (policy) => {
-      const permissions = await this.getManagedPolicyDocument(policy.PolicyArn || '');
-      return {
-        PolicyName: policy.PolicyName || '',
-        PolicyArn: policy.PolicyArn || '',
-        permissions
-      };
-    });
-    
-    const attachedPolicies: AttachedPolicy[] = await Promise.all(attachedPoliciesPromises);
-
-    // Get inline policies for the group
-    const inlinePoliciesCommand = new ListGroupPoliciesCommand({
-      GroupName: groupName
-    });
-    const inlinePoliciesResult = await safeAsync(this.iamClient.send(inlinePoliciesCommand));
-
-    const inlinePolicyNames = inlinePoliciesResult.success 
-      ? (inlinePoliciesResult.data.PolicyNames || []) 
-      : [];
-    
-    const inlinePoliciesPromises = inlinePolicyNames.map(async (policyName) => {
-      const policyCommand = new GetGroupPolicyCommand({
-        GroupName: groupName,
-        PolicyName: policyName
+    // Wrap the entire flow in safeAsync so failures are handled consistently
+    const result = await safeAsync((async () => {
+      // Get attached managed policies for the group
+      const attachedPoliciesCommand = new ListAttachedGroupPoliciesCommand({
+        GroupName: groupName
       });
-      const result = await safeAsync(this.iamClient.send(policyCommand));
-      if (!result.success || !result.data.PolicyDocument) {
-        return null;
-      }
-      
-      const permissions = this.parsePolicyDocument(result.data.PolicyDocument);
-      
-      return {
-        PolicyName: policyName,
-        PolicyDocument: result.data.PolicyDocument,
-        permissions
-      } as InlinePolicy;
-    });
-    
-    const inlinePoliciesResults = await Promise.all(inlinePoliciesPromises);
-    const inlinePolicies: InlinePolicy[] = inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
+      const attachedPoliciesResult = await safeAsync(this.iamClient.send(attachedPoliciesCommand));
 
-    return {
-      attachedPolicies,
-      inlinePolicies
-    };
+      const attachedPoliciesData = attachedPoliciesResult.success
+        ? (attachedPoliciesResult.data.AttachedPolicies || [])
+        : [];
+
+      const attachedPoliciesPromises = attachedPoliciesData.map(async (policy) => {
+        const permissions = await this.getManagedPolicyDocument(policy.PolicyArn || '');
+        return {
+          PolicyName: policy.PolicyName || '',
+          PolicyArn: policy.PolicyArn || '',
+          permissions
+        };
+      });
+
+      const attachedPolicies: AttachedPolicy[] = await Promise.all(attachedPoliciesPromises);
+
+      // Get inline policies for the group
+      const inlinePoliciesCommand = new ListGroupPoliciesCommand({
+        GroupName: groupName
+      });
+      const inlinePoliciesResult = await safeAsync(this.iamClient.send(inlinePoliciesCommand));
+
+      const inlinePolicyNames = inlinePoliciesResult.success
+        ? (inlinePoliciesResult.data.PolicyNames || [])
+        : [];
+
+      const inlinePoliciesPromises = inlinePolicyNames.map(async (policyName) => {
+        const policyCommand = new GetGroupPolicyCommand({
+          GroupName: groupName,
+          PolicyName: policyName
+        });
+        const result = await safeAsync(this.iamClient.send(policyCommand));
+        if (!result.success || !result.data.PolicyDocument) {
+          return null;
+        }
+
+        const permissions = this.parsePolicyDocument(result.data.PolicyDocument);
+
+        return {
+          PolicyName: policyName,
+          PolicyDocument: result.data.PolicyDocument,
+          permissions
+        } as InlinePolicy;
+      });
+
+      const inlinePoliciesResults = await Promise.all(inlinePoliciesPromises);
+      const inlinePolicies: InlinePolicy[] = inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
+
+      return {
+        attachedPolicies,
+        inlinePolicies
+      };
+    })());
+
+    if (!result.success) {
+      console.warn(`Failed to get policies for group ${groupName}:`, result.error);
+      return { attachedPolicies: [], inlinePolicies: [] };
+    }
+
+    return result.data;
   }
 
   /**
