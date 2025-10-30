@@ -8,9 +8,11 @@ import {
   ListAttachedUserPoliciesCommand,
   ListUserPoliciesCommand,
   GetUserPolicyCommand,
-  ListGroupsForUserCommand
+  ListGroupsForUserCommand,
+  GetPolicyCommand,
+  GetPolicyVersionCommand
 } from '@aws-sdk/client-iam';
-import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup } from '@/types/aws';
+import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission } from '@/types/aws';
 import { safeAsync } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 
@@ -155,6 +157,57 @@ export class UserService {
   }
 
   /**
+   * Parse policy document and extract permissions
+   */
+  private parsePolicyDocument(policyDocument: string): PolicyPermission[] {
+    try {
+      const policy = JSON.parse(decodeURIComponent(policyDocument));
+      const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
+      
+      return statements.map((statement: any) => ({
+        effect: statement.Effect || 'Allow',
+        actions: Array.isArray(statement.Action) ? statement.Action : [statement.Action || '*'],
+        resources: Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource || '*'],
+        conditions: statement.Condition
+      }));
+    } catch (error) {
+      console.warn('Failed to parse policy document:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get managed policy document
+   */
+  private async getManagedPolicyDocument(policyArn: string): Promise<PolicyPermission[]> {
+    try {
+      // Get policy
+      const getPolicyCommand = new GetPolicyCommand({ PolicyArn: policyArn });
+      const policyResult = await safeAsync(this.iamClient.send(getPolicyCommand));
+      
+      if (!policyResult.success || !policyResult.data.Policy?.DefaultVersionId) {
+        return [];
+      }
+
+      // Get policy version (contains the actual policy document)
+      const getPolicyVersionCommand = new GetPolicyVersionCommand({
+        PolicyArn: policyArn,
+        VersionId: policyResult.data.Policy.DefaultVersionId
+      });
+      const versionResult = await safeAsync(this.iamClient.send(getPolicyVersionCommand));
+      
+      if (!versionResult.success || !versionResult.data.PolicyVersion?.Document) {
+        return [];
+      }
+
+      return this.parsePolicyDocument(versionResult.data.PolicyVersion.Document);
+    } catch (error) {
+      console.warn(`Failed to get policy document for ${policyArn}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get comprehensive IAM user permissions including policies and groups
    */
   async getIAMUserPermissions(userName: string): Promise<UserPermissions | null> {
@@ -178,24 +231,40 @@ export class UserService {
         PolicyName: policyName
       });
       const result = await safeAsync(this.iamClient.send(policyCommand));
-      return result.success ? {
+      if (!result.success || !result.data.PolicyDocument) {
+        return null;
+      }
+      
+      const permissions = this.parsePolicyDocument(result.data.PolicyDocument);
+      
+      return {
         PolicyName: policyName,
-        PolicyDocument: result.data.PolicyDocument || ''
-      } : null;
+        PolicyDocument: result.data.PolicyDocument,
+        permissions
+      } as InlinePolicy;
     });
     const inlinePoliciesResults = await Promise.all(inlinePoliciesPromises);
-    const inlinePolicies = inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
+    const inlinePolicies: InlinePolicy[] = inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
 
     // Get user groups
     const groupsCommand = new ListGroupsForUserCommand({ UserName: userName });
     const groupsResult = await safeAsync(this.iamClient.send(groupsCommand));
 
-    const attachedPolicies: AttachedPolicy[] = attachedPoliciesResult.success 
-      ? (attachedPoliciesResult.data.AttachedPolicies || []).map(policy => ({
-          PolicyName: policy.PolicyName || '',
-          PolicyArn: policy.PolicyArn || ''
-        }))
+    // Get managed policy documents with permissions
+    const attachedPoliciesData = attachedPoliciesResult.success 
+      ? (attachedPoliciesResult.data.AttachedPolicies || [])
       : [];
+    
+    const attachedPoliciesPromises = attachedPoliciesData.map(async (policy) => {
+      const permissions = await this.getManagedPolicyDocument(policy.PolicyArn || '');
+      return {
+        PolicyName: policy.PolicyName || '',
+        PolicyArn: policy.PolicyArn || '',
+        permissions
+      };
+    });
+    
+    const attachedPolicies: AttachedPolicy[] = await Promise.all(attachedPoliciesPromises);
 
     const groups: UserGroup[] = groupsResult.success
       ? (groupsResult.data.Groups || []).map(group => ({

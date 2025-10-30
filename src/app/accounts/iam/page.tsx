@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, Users, Key, FileText, Loader2, AlertCircle, RefreshCw, Mail, Calendar, CheckCircle, XCircle, Search, Filter, Lock, FolderTree, Code } from 'lucide-react';
+import { Shield, Users, Key, FileText, Loader2, AlertCircle, RefreshCw, Mail, Calendar, CheckCircle, XCircle, Search, Filter, Lock, FolderTree, Code, ChevronDown, ChevronRight } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import AccountTypeIndicator from '@/components/AccountTypeIndicator';
@@ -26,6 +26,7 @@ function IAMContent() {
   const { users, loading, error, accountId, refetch } = useIAMUsers(awsRegion);
   const [selectedUser, setSelectedUser] = useState<OrganizationUser | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(new Set());
 
   // Fetch permissions for selected user
   const { 
@@ -39,6 +40,19 @@ function IAMContent() {
 
   const handleUserClick = (user: OrganizationUser) => {
     setSelectedUser(selectedUser?.user.UserId === user.user.UserId ? null : user);
+    setExpandedPolicies(new Set()); // Reset expanded state when changing users
+  };
+
+  const togglePolicy = (policyId: string) => {
+    setExpandedPolicies(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(policyId)) {
+        newSet.delete(policyId);
+      } else {
+        newSet.add(policyId);
+      }
+      return newSet;
+    });
   };
 
   // Filter users based on search term
@@ -417,20 +431,103 @@ function IAMContent() {
                                   Managed Policies
                                 </h6>
                                 {permissions.attachedPolicies.length > 0 ? (
-                                  <div className="space-y-1.5">
-                                    {permissions.attachedPolicies.map((policy, idx) => (
-                                      <div 
-                                        key={idx}
-                                        className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-xs hover:bg-blue-100 transition-colors"
-                                      >
-                                        <p className="font-semibold text-blue-900 mb-0.5">
-                                          {policy.PolicyName}
-                                        </p>
-                                        <p className="text-blue-700 font-mono text-[10px] break-all">
-                                          {policy.PolicyArn}
-                                        </p>
-                                      </div>
-                                    ))}
+                                  <div className="space-y-2">
+                                    {permissions.attachedPolicies.map((policy, idx) => {
+                                      const policyId = `managed-${idx}`;
+                                      const isExpanded = expandedPolicies.has(policyId);
+                                      const hasPermissions = policy.permissions && policy.permissions.length > 0;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx}
+                                          className="bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                                        >
+                                          <button
+                                            onClick={() => hasPermissions && togglePolicy(policyId)}
+                                            className="w-full p-2.5 text-left"
+                                          >
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-blue-900 mb-0.5 text-xs">
+                                                  {policy.PolicyName}
+                                                </p>
+                                                <p className="text-blue-700 font-mono text-[10px] break-all">
+                                                  {policy.PolicyArn}
+                                                </p>
+                                              </div>
+                                              {hasPermissions && (
+                                                <div className="ml-2 flex-shrink-0">
+                                                  {isExpanded ? (
+                                                    <ChevronDown className="w-4 h-4 text-blue-600" />
+                                                  ) : (
+                                                    <ChevronRight className="w-4 h-4 text-blue-600" />
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </button>
+                                          
+                                          {/* Show permissions when expanded */}
+                                          {isExpanded && hasPermissions && (
+                                            <div className="px-2.5 pb-2.5 pt-0 border-t border-blue-200">
+                                              <div className="space-y-1.5 mt-2">
+                                                {policy.permissions!.map((perm, permIdx) => (
+                                                  <div key={permIdx} className="bg-white bg-opacity-60 rounded p-2">
+                                                    <div className="flex items-start gap-1.5 mb-1">
+                                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                                        perm.effect === 'Allow' 
+                                                          ? 'bg-green-100 text-green-800' 
+                                                          : 'bg-red-100 text-red-800'
+                                                      }`}>
+                                                        {perm.effect}
+                                                      </span>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                      <div>
+                                                        <p className="text-[10px] font-medium text-gray-600 mb-0.5">Actions:</p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                          {perm.actions.slice(0, 5).map((action, actIdx) => (
+                                                            <span 
+                                                              key={actIdx}
+                                                              className="inline-block bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-[9px] font-mono"
+                                                            >
+                                                              {action}
+                                                            </span>
+                                                          ))}
+                                                          {perm.actions.length > 5 && (
+                                                            <span className="text-[9px] text-gray-500">
+                                                              +{perm.actions.length - 5} more
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[10px] font-medium text-gray-600 mb-0.5">Resources:</p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                          {perm.resources.slice(0, 2).map((resource, resIdx) => (
+                                                            <span 
+                                                              key={resIdx}
+                                                              className="inline-block bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[9px] font-mono"
+                                                            >
+                                                              {resource.length > 30 ? `${resource.substring(0, 30)}...` : resource}
+                                                            </span>
+                                                          ))}
+                                                          {perm.resources.length > 2 && (
+                                                            <span className="text-[9px] text-gray-500">
+                                                              +{perm.resources.length - 2} more
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 ) : (
                                   <div className="bg-gray-50 rounded-lg p-3 text-center">
@@ -447,15 +544,74 @@ function IAMContent() {
                                   Inline Policies
                                 </h6>
                                 {permissions.inlinePolicies.length > 0 ? (
-                                  <div className="space-y-1.5">
+                                  <div className="space-y-2">
                                     {permissions.inlinePolicies.map((policy, idx) => (
                                       <div 
                                         key={idx}
-                                        className="bg-purple-50 border border-purple-200 rounded-lg p-2.5 hover:bg-purple-100 transition-colors"
+                                        className="bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
                                       >
-                                        <p className="font-semibold text-purple-900 text-xs">
-                                          {policy.PolicyName}
-                                        </p>
+                                        <div className="p-2.5">
+                                          <p className="font-semibold text-purple-900 text-xs mb-2">
+                                            {policy.PolicyName}
+                                          </p>
+                                          
+                                          {/* Show permissions */}
+                                          {policy.permissions && policy.permissions.length > 0 && (
+                                            <div className="space-y-1.5">
+                                              {policy.permissions.map((perm, permIdx) => (
+                                                <div key={permIdx} className="bg-white bg-opacity-60 rounded p-2">
+                                                  <div className="flex items-start gap-1.5 mb-1">
+                                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                                      perm.effect === 'Allow' 
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : 'bg-red-100 text-red-800'
+                                                    }`}>
+                                                      {perm.effect}
+                                                    </span>
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <div>
+                                                      <p className="text-[10px] font-medium text-gray-600 mb-0.5">Actions:</p>
+                                                      <div className="flex flex-wrap gap-1">
+                                                        {perm.actions.slice(0, 5).map((action, actIdx) => (
+                                                          <span 
+                                                            key={actIdx}
+                                                            className="inline-block bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-[9px] font-mono"
+                                                          >
+                                                            {action}
+                                                          </span>
+                                                        ))}
+                                                        {perm.actions.length > 5 && (
+                                                          <span className="text-[9px] text-gray-500">
+                                                            +{perm.actions.length - 5} more
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-[10px] font-medium text-gray-600 mb-0.5">Resources:</p>
+                                                      <div className="flex flex-wrap gap-1">
+                                                        {perm.resources.slice(0, 2).map((resource, resIdx) => (
+                                                          <span 
+                                                            key={resIdx}
+                                                            className="inline-block bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[9px] font-mono"
+                                                          >
+                                                            {resource.length > 30 ? `${resource.substring(0, 30)}...` : resource}
+                                                          </span>
+                                                        ))}
+                                                        {perm.resources.length > 2 && (
+                                                          <span className="text-[9px] text-gray-500">
+                                                            +{perm.resources.length - 2} more
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
                                   </div>

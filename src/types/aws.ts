@@ -37,11 +37,20 @@ export interface SSOInstance {
 export interface AttachedPolicy {
   PolicyName: string;
   PolicyArn: string;
+  permissions?: PolicyPermission[];
 }
 
 export interface InlinePolicy {
   PolicyName: string;
   PolicyDocument: string;
+  permissions?: PolicyPermission[];
+}
+
+export interface PolicyPermission {
+  effect: 'Allow' | 'Deny';
+  actions: string[];
+  resources: string[];
+  conditions?: Record<string, unknown>;
 }
 
 export interface UserGroup {
