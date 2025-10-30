@@ -6,7 +6,7 @@ interface RegionContextType {
   awsRegion: string;
   ssoRegion: string;
   setAwsRegion: (region: string) => void;
-  // SSO region comes from env, so no setter needed
+  setSsoRegion: (region: string) => void;
 }
 
 const RegionContext = createContext<RegionContextType | undefined>(undefined);
@@ -25,8 +25,14 @@ export function RegionProvider({ children }: RegionProviderProps) {
     return process.env.NEXT_PUBLIC_AWS_DEFAULT_REGION || 'us-east-1';
   });
 
-  // SSO region comes from environment variables
-  const ssoRegion = process.env.NEXT_PUBLIC_AWS_SSO_REGION || 'us-east-1';
+  // SSO region also from localStorage with env fallback
+  const [ssoRegion, setSsoRegionState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sso-region');
+      if (saved) return saved;
+    }
+    return process.env.NEXT_PUBLIC_AWS_SSO_REGION || 'us-east-1';
+  });
 
   // Persist AWS region to localStorage
   const setAwsRegion = (region: string) => {
@@ -36,10 +42,19 @@ export function RegionProvider({ children }: RegionProviderProps) {
     }
   };
 
+  // Persist SSO region to localStorage
+  const setSsoRegion = (region: string) => {
+    setSsoRegionState(region);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sso-region', region);
+    }
+  };
+
   const value: RegionContextType = {
     awsRegion,
     ssoRegion,
     setAwsRegion,
+    setSsoRegion,
   };
 
   return (

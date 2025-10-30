@@ -5,12 +5,14 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRegion } from '@/contexts/RegionContext';
 import { useRouter } from 'next/navigation';
 import { Building2, AlertCircle, Zap, Globe, CheckCircle, Lock, Shield } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 
 export default function LoginPage() {
   const { login, loading, error } = useAuth();
+  const { setAwsRegion, setSsoRegion } = useRegion();
   const router = useRouter();
   const [formData, setFormData] = useState({
     accessKeyId: '',
@@ -29,6 +31,10 @@ export default function LoginPage() {
         sessionToken: formData.sessionToken || undefined,
         region: formData.region
       });
+      
+      // Set both AWS and SSO regions to the selected region
+      setAwsRegion(formData.region);
+      setSsoRegion(formData.region);
       
       router.push('/');
     } catch (err) {

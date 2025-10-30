@@ -48,7 +48,7 @@ export function useAccountCapabilities(awsRegion: string, ssoRegion: string) {
       // Check SSO access
       const checkSSO = async () => {
         const response = await fetch(
-          `/api/permission-sets?ssoRegion=${encodeURIComponent(ssoRegion)}`,
+          `/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`,
           {
             headers: createAuthHeaders(),
             cache: 'no-store',
