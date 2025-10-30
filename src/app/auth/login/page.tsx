@@ -12,7 +12,7 @@ import AuthGuard from '@/components/AuthGuard';
 
 export default function LoginPage() {
   const { login, loading, error } = useAuth();
-  const { setAwsRegion, setSsoRegion } = useRegion();
+  const { setAwsRegion } = useRegion();
   const router = useRouter();
   const [formData, setFormData] = useState({
     accessKeyId: '',
@@ -32,9 +32,8 @@ export default function LoginPage() {
         region: formData.region
       });
       
-      // Set both AWS and SSO regions to the selected region
+      // Set the region
       setAwsRegion(formData.region);
-      setSsoRegion(formData.region);
       
       router.push('/');
     } catch (err) {

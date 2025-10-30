@@ -47,18 +47,18 @@ export function useAccountCapabilities(awsRegion: string, ssoRegion: string) {
 
       // Check SSO access
       const checkSSO = async () => {
-        const response = await fetch(
-          `/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`,
-          {
-            headers: createAuthHeaders(),
-            cache: 'no-store',
-          }
-        );
-        const data = await response.json();
-        return {
-          hasAccess: response.ok && data.success && Array.isArray(data.data),
-          error: !response.ok || !data.success ? data.error : undefined
-        };
+          const response = await fetch(
+            `/api/permission-sets?region=${encodeURIComponent(awsRegion)}&ssoRegion=${encodeURIComponent(ssoRegion)}`,
+            {
+              headers: createAuthHeaders(),
+              cache: 'no-store',
+            }
+          );
+          const data = await response.json();
+          return {
+            hasAccess: response.ok && data.success && Array.isArray(data.data),
+            error: !response.ok || !data.success ? (data.error || 'SSO check failed') : undefined
+          };
       };
 
       // Run checks in parallel
