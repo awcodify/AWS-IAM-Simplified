@@ -7,6 +7,7 @@ import type {
 import {
   SENSITIVE_ACTIONS
 } from '@/types/risk-analysis';
+import { safeSync } from '@/lib/result';
 
 /**
  * Simple policy analyzer focused on analyzing individual policies
@@ -63,7 +64,7 @@ export class PolicyAnalyzer {
     let adminPermissions = false;
     const crossAccountAccess = false;
 
-    const policy = this.parsePolicyDocument(policyDocument);
+    const policy = await this.parsePolicyDocument(policyDocument);
     if (!policy?.Statement) {
       return this.createEmptyAnalysisResult(policyName);
     }
@@ -125,20 +126,8 @@ export class PolicyAnalyzer {
     return policyArn.includes('PowerUserAccess');
   }
 
-  /**
-   * Safe wrapper for synchronous operations that may throw
-   */
-  private safeSyncOperation<T>(operation: () => T): { success: true; data: T } | { success: false; error: any } {
-    try {
-      const data = operation();
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error };
-    }
-  }
-
-  private parsePolicyDocument(policyDocument: string): Record<string, unknown> | null {
-    const result = this.safeSyncOperation(() => JSON.parse(policyDocument));
+  private async parsePolicyDocument(policyDocument: string): Promise<Record<string, unknown> | null> {
+    const result = await safeSync(() => JSON.parse(policyDocument));
     return result.success ? result.data : null;
   }
 
