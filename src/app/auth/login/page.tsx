@@ -9,6 +9,7 @@ import { useRegion } from '@/contexts/RegionContext';
 import { useRouter } from 'next/navigation';
 import { Building2, AlertCircle, Zap, Globe, CheckCircle, Lock, Shield } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
+import { AWS_REGIONS, DEFAULT_AWS_REGION } from '@/constants/regions';
 
 export default function LoginPage() {
   const { login, loading, error } = useAuth();
@@ -18,7 +19,7 @@ export default function LoginPage() {
     accessKeyId: '',
     secretAccessKey: '',
     sessionToken: '',
-    region: 'us-east-1'
+    region: DEFAULT_AWS_REGION
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,11 +189,11 @@ export default function LoginPage() {
                       onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                      <option value="us-east-1">US East (N. Virginia)</option>
-                      <option value="us-west-2">US West (Oregon)</option>
-                      <option value="eu-west-1">Europe (Ireland)</option>
-                      <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
-                      <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+                      {AWS_REGIONS.map(region => (
+                        <option key={region.value} value={region.value}>
+                          {region.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

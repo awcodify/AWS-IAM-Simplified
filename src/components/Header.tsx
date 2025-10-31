@@ -4,41 +4,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Building2, ChevronDown, CheckCircle2, Globe, User } from 'lucide-react';
 import { useRegion } from '@/contexts/RegionContext';
 import { useAccountInfo } from '@/hooks/useAccountInfo';
+import { AWS_REGIONS } from '@/constants/regions';
 
 // Header component with no external props needed
 // Available for header customization if needed
 
-interface RegionOption {
-  value: string;
-  label: string;
-}
-
-const AWS_REGIONS: RegionOption[] = [
-  { value: 'us-east-1', label: 'US East (N. Virginia)' },
-  { value: 'us-east-2', label: 'US East (Ohio)' },
-  { value: 'us-west-1', label: 'US West (N. California)' },
-  { value: 'us-west-2', label: 'US West (Oregon)' },
-  { value: 'ca-central-1', label: 'Canada (Central)' },
-  { value: 'eu-west-1', label: 'Europe (Ireland)' },
-  { value: 'eu-west-2', label: 'Europe (London)' },
-  { value: 'eu-west-3', label: 'Europe (Paris)' },
-  { value: 'eu-central-1', label: 'Europe (Frankfurt)' },
-  { value: 'eu-north-1', label: 'Europe (Stockholm)' },
-  { value: 'eu-south-1', label: 'Europe (Milan)' },
-  { value: 'ap-northeast-1', label: 'Asia Pacific (Tokyo)' },
-  { value: 'ap-northeast-2', label: 'Asia Pacific (Seoul)' },
-  { value: 'ap-northeast-3', label: 'Asia Pacific (Osaka)' },
-  { value: 'ap-southeast-1', label: 'Asia Pacific (Singapore)' },
-  { value: 'ap-southeast-2', label: 'Asia Pacific (Sydney)' },
-  { value: 'ap-southeast-3', label: 'Asia Pacific (Jakarta)' },
-  { value: 'ap-south-1', label: 'Asia Pacific (Mumbai)' },
-  { value: 'sa-east-1', label: 'South America (São Paulo)' },
-  { value: 'af-south-1', label: 'Africa (Cape Town)' },
-  { value: 'me-south-1', label: 'Middle East (Bahrain)' },
-];
-
 export default function Header() {
-  const { awsRegion, ssoRegion, setAwsRegion } = useRegion();
+  const { awsRegion, identityCenterRegion, setAwsRegion } = useRegion();
   const { accountInfo } = useAccountInfo();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -130,7 +102,7 @@ export default function Header() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-600 mt-1">
                         <span>Identity Center:</span>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">{ssoRegion}</span>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">{identityCenterRegion}</span>
                       </div>
                     </div>
 
@@ -158,7 +130,7 @@ export default function Header() {
                   </div>
 
                   {/* Information Footer */}
-                  {ssoRegion !== awsRegion && (
+                  {identityCenterRegion !== awsRegion && (
                     <div className="px-4 py-2 bg-yellow-50 border-t border-yellow-200">
                       <div className="text-xs text-yellow-800">
                         <strong>Note:</strong> Your AWS and Identity Center regions differ. This is normal if your Identity Center is configured in a different region.

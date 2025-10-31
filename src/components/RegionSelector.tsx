@@ -1,11 +1,7 @@
 'use client';
 
 import { Building2 } from 'lucide-react';
-
-interface RegionOption {
-  value: string;
-  label: string;
-}
+import { AWS_REGIONS, AWSRegion } from '@/constants/regions';
 
 interface RegionSelectorProps {
   label: string;
@@ -17,30 +13,6 @@ interface RegionSelectorProps {
   colorScheme?: 'green' | 'blue' | 'purple' | 'gray';
   className?: string;
 }
-
-const AWS_REGIONS: RegionOption[] = [
-  { value: 'us-east-1', label: 'US East (N. Virginia)' },
-  { value: 'us-east-2', label: 'US East (Ohio)' },
-  { value: 'us-west-1', label: 'US West (N. California)' },
-  { value: 'us-west-2', label: 'US West (Oregon)' },
-  { value: 'ca-central-1', label: 'Canada (Central)' },
-  { value: 'eu-west-1', label: 'Europe (Ireland)' },
-  { value: 'eu-west-2', label: 'Europe (London)' },
-  { value: 'eu-west-3', label: 'Europe (Paris)' },
-  { value: 'eu-central-1', label: 'Europe (Frankfurt)' },
-  { value: 'eu-north-1', label: 'Europe (Stockholm)' },
-  { value: 'eu-south-1', label: 'Europe (Milan)' },
-  { value: 'ap-northeast-1', label: 'Asia Pacific (Tokyo)' },
-  { value: 'ap-northeast-2', label: 'Asia Pacific (Seoul)' },
-  { value: 'ap-northeast-3', label: 'Asia Pacific (Osaka)' },
-  { value: 'ap-southeast-1', label: 'Asia Pacific (Singapore)' },
-  { value: 'ap-southeast-2', label: 'Asia Pacific (Sydney)' },
-  { value: 'ap-southeast-3', label: 'Asia Pacific (Jakarta)' },
-  { value: 'ap-south-1', label: 'Asia Pacific (Mumbai)' },
-  { value: 'sa-east-1', label: 'South America (São Paulo)' },
-  { value: 'af-south-1', label: 'Africa (Cape Town)' },
-  { value: 'me-south-1', label: 'Middle East (Bahrain)' },
-];
 
 const getColorClasses = (colorScheme: string) => {
   switch (colorScheme) {
@@ -126,5 +98,4 @@ export default function RegionSelector({
   );
 }
 
-export { AWS_REGIONS };
-export type { RegionOption, RegionSelectorProps };
+export type { RegionSelectorProps };

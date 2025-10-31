@@ -9,6 +9,7 @@ import { useRegion } from '@/contexts/RegionContext';
 import PageLayout from '@/components/PageLayout';
 import PageHeader from '@/components/PageHeader';
 import AuthGuard from '@/components/AuthGuard';
+import { AWS_REGIONS } from '@/constants/regions';
 import { 
   Settings, 
   User, 
@@ -22,7 +23,7 @@ import {
 
 export default function SettingsPage() {
   const { session, logout } = useAuth();
-  const { awsRegion, ssoRegion, setAwsRegion } = useRegion();
+  const { awsRegion, identityCenterRegion, setAwsRegion, setIdentityCenterRegion } = useRegion();
   const [activeTab, setActiveTab] = useState<'account' | 'regions' | 'about'>('account');
 
   const handleLogout = () => {
@@ -169,59 +170,66 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="awsRegion" className="block text-sm font-medium text-gray-700">
-                      AWS Region
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <label htmlFor="awsRegion" className="block text-sm font-medium text-blue-900 mb-2">
+                      AWS Operations Region
                     </label>
                     <select
                       id="awsRegion"
                       value={awsRegion}
                       onChange={(e) => setAwsRegion(e.target.value)}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                      className="mt-1 block w-full px-3 py-2 border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
                     >
-                      <option value="us-east-1">US East (N. Virginia)</option>
-                      <option value="us-west-2">US West (Oregon)</option>
-                      <option value="eu-west-1">Europe (Ireland)</option>
-                      <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
-                      <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+                      {AWS_REGIONS.map(region => (
+                        <option key={region.value} value={region.value}>
+                          {region.label}
+                        </option>
+                      ))}
                     </select>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Primary region for AWS services and resources
+                    <p className="mt-2 text-sm text-blue-700">
+                      Primary region for AWS IAM, Organizations, and other services
                     </p>
                   </div>
 
-                  <div>
-                    <label htmlFor="ssoRegion" className="block text-sm font-medium text-gray-700">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <label htmlFor="identityCenterRegion" className="block text-sm font-medium text-purple-900 mb-2">
                       IAM Identity Center Region
                     </label>
                     <select
-                      id="ssoRegion"
-                      value={ssoRegion}
-                      disabled
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500 sm:text-sm cursor-not-allowed"
+                      id="identityCenterRegion"
+                      value={identityCenterRegion}
+                      onChange={(e) => setIdentityCenterRegion(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-purple-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
                     >
-                      <option value="us-east-1">US East (N. Virginia)</option>
-                      <option value="us-west-2">US West (Oregon)</option>
-                      <option value="eu-west-1">Europe (Ireland)</option>
-                      <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
-                      <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+                      {AWS_REGIONS.map(region => (
+                        <option key={region.value} value={region.value}>
+                          {region.label}
+                        </option>
+                      ))}
                     </select>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Region where your IAM Identity Center (SSO) is configured (set via environment variable)
+                    <p className="mt-2 text-sm text-purple-700">
+                      Region where your IAM Identity Center (SSO) is configured
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <div className="flex">
-                    <AlertCircle className="h-5 w-5 text-yellow-400" />
+                    <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
                     <div className="ml-3">
-                      <h4 className="text-sm font-medium text-yellow-800">Important</h4>
-                      <p className="mt-1 text-sm text-yellow-700">
-                        The IAM Identity Center region should match where your SSO instance is configured. 
-                        This typically doesn&apos;t change once set up.
-                      </p>
+                      <h4 className="text-sm font-medium text-yellow-800">Important Notes</h4>
+                      <ul className="mt-2 text-sm text-yellow-700 list-disc list-inside space-y-1">
+                        <li>
+                          <strong>AWS Operations Region:</strong> Used for IAM, Organizations, and general AWS service calls. Can be changed based on your needs.
+                        </li>
+                        <li>
+                          <strong>Identity Center Region:</strong> Should match where your IAM Identity Center is deployed. Changing this incorrectly will prevent SSO from working.
+                        </li>
+                        <li>
+                          Both settings are saved in your browser and will persist across sessions.
+                        </li>
+                      </ul>
                     </div>
                   </div>
                 </div>
