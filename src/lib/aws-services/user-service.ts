@@ -17,7 +17,7 @@ import {
   ListAccessKeysCommand
 } from '@aws-sdk/client-iam';
 import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission, AccessKey } from '@/types/aws';
-import { safeAsync } from '@/lib/result';
+import { safeAsync, safeSync } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 
 /**
@@ -161,31 +161,18 @@ export class UserService {
   }
 
   /**
-   * Safe wrapper for synchronous operations that may throw
-   * This is a minimal exception to the no-try/catch guideline for truly synchronous APIs
-   */
-  private safeSyncOperation<T>(operation: () => T): { success: true; data: T } | { success: false; error: any } {
-    try {
-      const data = operation();
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error };
-    }
-  }
-
-  /**
    * Parse policy document and extract permissions
    */
-  private parsePolicyDocument(policyDocument: string): PolicyPermission[] {
+  private async parsePolicyDocument(policyDocument: string): Promise<PolicyPermission[]> {
     // Decode URI component
-    const decodeResult = this.safeSyncOperation(() => decodeURIComponent(policyDocument));
+    const decodeResult = await safeSync(() => decodeURIComponent(policyDocument));
     if (!decodeResult.success) {
       console.warn('Failed to decode policy document:', decodeResult.error);
       return [];
     }
     
     // Parse JSON
-    const parseResult = this.safeSyncOperation(() => JSON.parse(decodeResult.data));
+    const parseResult = await safeSync(() => JSON.parse(decodeResult.data));
     if (!parseResult.success) {
       console.warn('Failed to parse policy document:', parseResult.error);
       return [];
@@ -225,7 +212,7 @@ export class UserService {
       return [];
     }
 
-    return this.parsePolicyDocument(versionResult.data.PolicyVersion.Document);
+    return await this.parsePolicyDocument(versionResult.data.PolicyVersion.Document);
   }
 
   /**
@@ -278,7 +265,7 @@ export class UserService {
           return null;
         }
 
-        const permissions = this.parsePolicyDocument(result.data.PolicyDocument);
+        const permissions = await this.parsePolicyDocument(result.data.PolicyDocument);
 
         return {
           PolicyName: policyName,
@@ -332,7 +319,7 @@ export class UserService {
         return null;
       }
       
-      const permissions = this.parsePolicyDocument(result.data.PolicyDocument);
+      const permissions = await this.parsePolicyDocument(result.data.PolicyDocument);
       
       return {
         PolicyName: policyName,

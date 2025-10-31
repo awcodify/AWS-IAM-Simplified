@@ -28,3 +28,18 @@ export async function mapResultAsync<T, U, E>(
   if (!result.success) return result;
   return safeAsync(fn(result.data));
 }
+
+/**
+ * Safe synchronous operation handler that avoids try-catch
+ * Note: Returns a Promise to enable error handling without try-catch
+ */
+export async function safeSync<T>(
+  operation: () => T
+): Promise<Result<T, Error>> {
+  return Promise.resolve()
+    .then(() => operation())
+    .then(
+      (data) => Ok(data),
+      (error) => Err(error instanceof Error ? error : new Error(String(error)))
+    );
+}
