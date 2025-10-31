@@ -21,6 +21,7 @@ export class AccountService {
   private stsClient: STSClient;
   private organizationsClient: OrganizationsClient;
   private iamClient: IAMClient;
+  private accountNameCache: Map<string, string | undefined> = new Map();
 
   constructor(region?: string, credentials?: AWSCredentials) {
     const config = {
@@ -36,6 +37,11 @@ export class AccountService {
    * Get account name from Organizations API or IAM alias
    */
   private async getAccountName(accountId: string): Promise<string | undefined> {
+    // Check cache first
+    if (this.accountNameCache.has(accountId)) {
+      return this.accountNameCache.get(accountId);
+    }
+
     // Try to get account name from Organizations API first
     const orgResult = await safeAsync(
       this.organizationsClient.send(
@@ -44,7 +50,9 @@ export class AccountService {
     );
 
     if (orgResult.success && orgResult.data.Account?.Name) {
-      return orgResult.data.Account.Name;
+      const accountName = orgResult.data.Account.Name;
+      this.accountNameCache.set(accountId, accountName);
+      return accountName;
     }
 
     // Fallback to IAM account alias
@@ -53,9 +61,13 @@ export class AccountService {
     );
 
     if (aliasResult.success && aliasResult.data.AccountAliases && aliasResult.data.AccountAliases.length > 0) {
-      return aliasResult.data.AccountAliases[0];
+      const accountName = aliasResult.data.AccountAliases[0];
+      this.accountNameCache.set(accountId, accountName);
+      return accountName;
     }
 
+    // Cache undefined result to avoid repeated failed lookups
+    this.accountNameCache.set(accountId, undefined);
     return undefined;
   }
 
@@ -91,5 +103,13 @@ export class AccountService {
   async testConnection(): Promise<boolean> {
     const result = await this.getAccountInfo();
     return result.success;
+  }
+
+  /**
+   * Clear the account name cache
+   * Useful if account names have been updated and need to be refreshed
+   */
+  clearCache(): void {
+    this.accountNameCache.clear();
   }
 }
