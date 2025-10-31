@@ -1,3 +1,8 @@
+---
+description: Project health report with code quality metrics, technical debt tracking, and improvement guidelines
+applyTo: "**"
+---
+
 # Project Analysis & Health Report
 **AWS IAM Simplified - Comprehensive Status**
 
