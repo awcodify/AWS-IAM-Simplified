@@ -47,11 +47,11 @@ Requires IAM Identity Center (AWS SSO) enabled:
 - **Clean, modern UI** - Built with Next.js and Tailwind CSS
 - **Account information** - Displays current AWS account details
 
-For a complete list of all features, see [FEATURES.md](./FEATURES.md).
+For a complete list of all features, see **[Features Documentation](./docs/features.md)**.
 
 ## ⚠️ Important: Account Requirements
 
-Different features require different AWS account credentials. **Please read [ACCOUNT_REQUIREMENTS.md](./ACCOUNT_REQUIREMENTS.md)** to understand which account to use for each feature.
+Different features require different AWS account credentials. **Please read [Account Requirements](./docs/account-requirements.md)** to understand which account to use for each feature.
 
 **Quick Reference:**
 - 🏢 **Management Account Features** (`/accounts/management`) → Management Account
@@ -96,7 +96,7 @@ The application automatically detects your account's capabilities and displays a
 
 - Node.js 18+ installed
 - AWS IAM user credentials (Access Key ID and Secret Access Key)
-- Understanding of which AWS account to use (see [ACCOUNT_REQUIREMENTS.md](./ACCOUNT_REQUIREMENTS.md))
+- Understanding of which AWS account to use (see [Account Requirements](./docs/account-requirements.md))
 
 ### Installation
 
@@ -150,6 +150,8 @@ Access the management account features at `/accounts/management`.
 1. Must be using the **management account** of your AWS Organization
 2. AWS Organizations must be enabled
 3. Cross-account roles must be set up in member accounts (for cross-account access verification)
+
+**See [Cross-Account Setup Guide](./docs/setup-cross-account.md) for detailed instructions.**
 
 **Required Permissions:**
 ```json
@@ -341,7 +343,16 @@ docker run -p 3000:3000 aws-iam-dashboard
 
 After starting the container, navigate to the application and login with your AWS credentials through the web interface.
 
-## 📝 License
+## � Documentation
+
+For detailed documentation, see the [`docs/`](./docs/) folder:
+
+- **[Features Documentation](./docs/features.md)** - Complete feature list and descriptions
+- **[Account Requirements](./docs/account-requirements.md)** - Which account to use for each feature
+- **[Cross-Account Setup](./docs/setup-cross-account.md)** - Setting up cross-account access
+- **[Technical Documentation](./docs/technical/)** - Architecture and implementation details
+
+## �📝 License
 
 MIT License - feel free to use this project for your own AWS IAM management needs!
 

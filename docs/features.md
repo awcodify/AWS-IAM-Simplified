@@ -385,9 +385,9 @@ Have an idea for a new feature? Please open an issue on GitHub with the "feature
 
 ## Documentation
 
-- [README.md](./README.md) - Getting started guide
-- [ACCOUNT_REQUIREMENTS.md](./ACCOUNT_REQUIREMENTS.md) - Account setup details
-- [ORGANIZATION_SETUP.md](./ORGANIZATION_SETUP.md) - Cross-account setup
-- [API_OPTIMIZATION_ANALYSIS.md](./API_OPTIMIZATION_ANALYSIS.md) - Performance optimizations
-- [RISK_ANALYSIS_OPTIMIZATION.md](./RISK_ANALYSIS_OPTIMIZATION.md) - Risk analysis details
-- [SCAN_SESSION_SOLUTION.md](./SCAN_SESSION_SOLUTION.md) - Scan session management
+- [README](../README.md) - Getting started guide
+- [Account Requirements](./account-requirements.md) - Account setup details
+- [Cross-Account Setup](./setup-cross-account.md) - Cross-account setup
+- [API Optimization](./technical/api-optimization.md) - Performance optimizations
+- [Risk Analysis Optimization](./technical/risk-analysis-optimization.md) - Risk analysis details
+- [Scan Session Management](./technical/scan-session-management.md) - Scan session management
