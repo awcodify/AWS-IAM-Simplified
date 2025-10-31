@@ -42,6 +42,7 @@ This document outlines the duplicate API calls found in the AWS IAM Simplified a
   - Region-based caching
   - Deduplication of concurrent requests
   - Cache invalidation methods
+  - **5-minute TTL (Time To Live)** - Automatic cache expiration
 
 #### `usePermissionSets` Hook
 - **File:** `/src/hooks/usePermissionSets.ts`
@@ -72,13 +73,17 @@ This document outlines the duplicate API calls found in the AWS IAM Simplified a
 - Removed direct `/api/permission-sets` and `/api/organization/accounts` fetches
 - Now uses `usePermissionSets` and `useOrganizationAccounts` hooks
 - Only fetches user count directly (since it needs different parameters)
+- Serves as main navigation hub for all features
 - **Result:** Eliminates 2 duplicate API calls
 
 #### Organization Page (`/src/app/organization/page.tsx`)
-**Changes:**
+**Note:** This page now redirects to `/accounts/management` which implements the optimizations.
+
+**Changes in Management Account Page (`/src/app/accounts/management/page.tsx`):**
 - Removed direct `/api/account` and `/api/organization/accounts` fetches
 - Now uses `useAccountInfo` and `useOrganizationAccounts` hooks
 - Simplified `fetchData` function to only fetch users
+- Implements bulk access loading for performance
 - **Result:** Eliminates 2 duplicate API calls
 
 #### Permission Sets Page (`/src/app/permission-sets/page.tsx`)
@@ -153,17 +158,19 @@ let promises: { [key: string]: Promise<DataType> } = {};
 
 ## Future Improvements
 
-1. **Add Cache TTL (Time To Live):**
-   - Implement automatic cache expiration
-   - Add refresh mechanisms for stale data
+1. **~~Add Cache TTL (Time To Live)~~** ✅ **IMPLEMENTED**
+   - ~~Implement automatic cache expiration~~ - Already implemented with 5-minute TTL in `useAccountInfo`
+   - ~~Add refresh mechanisms for stale data~~ - Cache invalidation methods available
 
 2. **Implement Global State Management:**
    - Consider using Context API or state management library
    - Provide application-wide data sharing
+   - **Note:** Currently using React Context for auth and region management
 
 3. **Add Cache Persistence:**
    - Store cache in localStorage for session persistence
    - Implement cache versioning
+   - Consider using sessionStorage for risk analysis scan sessions (already implemented)
 
 4. **Monitor Performance:**
    - Add analytics to track API call reduction
