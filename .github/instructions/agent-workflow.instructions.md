@@ -1,3 +1,8 @@
+---
+description: Step-by-step workflow for AI agents making changes to the codebase
+applyTo: "**"
+---
+
 # AI Agent Workflow Guide
 **Clear Instructions for Maintaining AWS IAM Simplified**
 
@@ -21,7 +26,7 @@ Last Updated: October 31, 2025
 
 ### Before Making ANY Changes
 
-**Step 1:** Read `.github/PROJECT-ANALYSIS.md`
+**Step 1:** Read `.github/instructions/project-analysis.instructions.md`
 - Current project status
 - Known issues and technical debt
 - Architecture overview
@@ -46,7 +51,7 @@ Last Updated: October 31, 2025
 ```
 ┌─────────────────────────────────┐
 │  1. Read user request           │
-│  2. Check PROJECT-ANALYSIS.md   │
+│  2. Check project-analysis.instructions.md   │
 │  3. Review related code files   │
 │  4. Check existing patterns     │
 │  5. Identify documentation needs│
@@ -103,11 +108,11 @@ Last Updated: October 31, 2025
 |-------------|-------------------|
 | **New Feature** | `README.md`, `/docs/features.md`, `CHANGELOG.md` |
 | **API Change** | `/docs/technical/`, inline JSDoc, `CHANGELOG.md` |
-| **Architecture Change** | `PROJECT-ANALYSIS.md`, relevant tech docs |
+| **Architecture Change** | `project-analysis.instructions.md`, relevant tech docs |
 | **Bug Fix** | `CHANGELOG.md`, affected feature docs |
 | **Configuration** | `README.md`, `.env.example`, setup docs |
-| **Performance** | `PROJECT-ANALYSIS.md`, `/docs/technical/` |
-| **Refactoring** | `PROJECT-ANALYSIS.md` (update metrics) |
+| **Performance** | `project-analysis.instructions.md`, `/docs/technical/` |
+| **Refactoring** | `project-analysis.instructions.md` (update metrics) |
 
 ### Phase 4: Verification
 
@@ -140,7 +145,7 @@ Last Updated: October 31, 2025
 2. Update `/docs/features.md` with new feature
 3. Update `README.md` if user-facing
 4. Add entry to `/docs/CHANGELOG.md`
-5. Update `PROJECT-ANALYSIS.md` metrics if significant
+5. Update `project-analysis.instructions.md` metrics if significant
 
 **Example:**
 ```markdown
@@ -159,7 +164,7 @@ Last Updated: October 31, 2025
 2. Add JSDoc explaining the fix
 3. Update affected feature documentation
 4. Add entry to `/docs/CHANGELOG.md`
-5. Update `PROJECT-ANALYSIS.md` if it resolves technical debt
+5. Update `project-analysis.instructions.md` if it resolves technical debt
 
 **Example:**
 ```markdown
@@ -176,7 +181,7 @@ Last Updated: October 31, 2025
 1. Refactor following established patterns
 2. Ensure no behavior changes
 3. Update JSDoc if function signatures change
-4. Update `PROJECT-ANALYSIS.md` metrics
+4. Update `project-analysis.instructions.md` metrics
 5. Add entry to `/docs/CHANGELOG.md`
 
 **Example:**
@@ -187,7 +192,7 @@ Last Updated: October 31, 2025
   - Reduced code duplication from 3 to 1 location
   - Improved maintainability score
 
-## PROJECT-ANALYSIS.md
+## project-analysis.instructions.md
 ### Code Quality Analysis
 - Code duplication: ~~3 instances~~ → 1 centralized utility ✅
 ```
@@ -199,13 +204,13 @@ Last Updated: October 31, 2025
 2. Test for breaking changes
 3. Update `README.md` if setup changes
 4. Add entry to `/docs/CHANGELOG.md`
-5. Update `PROJECT-ANALYSIS.md` if AWS SDK versions change
+5. Update `project-analysis.instructions.md` if AWS SDK versions change
 
 ---
 
 ## 🎯 Decision Trees
 
-### Should I update PROJECT-ANALYSIS.md?
+### Should I update project-analysis.instructions.md?
 
 ```
 Does this change affect:
@@ -385,7 +390,7 @@ export async function GET(request: Request) {
 1. Identify the bottleneck
 2. Implement optimization (caching, bulk ops, etc.)
 3. Measure improvement
-4. Update PROJECT-ANALYSIS.md Performance section
+4. Update project-analysis.instructions.md Performance section
 5. Document optimization in /docs/technical/
 6. Add CHANGELOG entry
 ```
@@ -397,7 +402,7 @@ export async function GET(request: Request) {
 2. Refactor following patterns
 3. Ensure no behavior changes
 4. Update JSDoc if needed
-5. Update PROJECT-ANALYSIS.md metrics
+5. Update project-analysis.instructions.md metrics
 6. Add CHANGELOG entry
 ```
 
@@ -411,11 +416,11 @@ export async function GET(request: Request) {
 1. Review open issues/PRs
 2. Check for dependency updates
 3. Scan for new technical debt
-4. Update PROJECT-ANALYSIS.md if needed
+4. Update project-analysis.instructions.md if needed
 
 ### After Major Changes
 
-**When to add a new timeline entry to PROJECT-ANALYSIS.md:**
+**When to add a new timeline entry to project-analysis.instructions.md:**
 
 Trigger events:
 - ✅ Completed Phase 1, 2, or 3 action items
@@ -582,7 +587,7 @@ grep -r ": any" src/
   /src/components/          → React components
 
 📁 Documentation to update:
-  /.github/PROJECT-ANALYSIS.md  → Project health
+  /.github/instructions/project-analysis.instructions.md  → Project health
   /.github/copilot-instructions.md → AI agent rules
   /README.md                → Main documentation
   /docs/features.md         → Feature documentation
@@ -607,7 +612,7 @@ grep -r ": any" src/
 
 ### When in Doubt:
 
-1. 📖 **Read PROJECT-ANALYSIS.md** - Context is there
+1. 📖 **Read project-analysis.instructions.md** - Context is there
 2. 🔍 **Look for existing patterns** - Don't reinvent
 3. 📝 **Document your decision** - Explain why
 4. 🤔 **Ask yourself:** "Will this confuse future developers?"

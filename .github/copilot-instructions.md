@@ -1,13 +1,31 @@
-# AWS IAM Simplified - Copilot Instructions
+---
+description: Main technical guidelines, coding standards, and architectural patterns for AWS IAM Simplified
+---
+
+# 🧠 AWS IAM Simplified - Copilot Instructions
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
 ## 📋 Essential Reading (Start Here!)
 
 **Before making ANY changes, read these in order:**
-1. 🔄 `.github/AGENT-WORKFLOW.md` - Step-by-step workflow for all changes
-2. 📊 `.github/PROJECT-ANALYSIS.md` - Complete project health report
-3. 📚 This file - Technical guidelines and patterns
+
+1. 🔄 [Agent Workflow](./instructions/agent-workflow.instructions.md)
+   - Step-by-step workflow for proposing, analyzing, and refactoring changes
+   - Contains decision trees, quality gates, and change templates
+   - **Read this first to understand HOW to make changes**
+
+2. 📊 [Project Analysis](./instructions/project-analysis.instructions.md)
+   - Full project health report with code quality metrics (82/100)
+   - Technical debt tracking and timeline
+   - Known issues and improvement priorities
+   - **Read this to understand WHAT needs improvement**
+
+3. 📚 This file (copilot-instructions.md)
+   - Technical guidelines and coding standards
+   - Architectural patterns and best practices
+   - Type safety and error handling rules
+   - **Read this to understand HOW TO CODE**
 
 ## 📋 Project Context
 
@@ -32,14 +50,14 @@ This is a Next.js TypeScript project for simplifying AWS IAM management across m
 When you make ANY change to code, you MUST:
 1. ✅ Update relevant documentation in `/docs/` if behavior changes
 2. ✅ Update inline JSDoc comments if function signatures change
-3. ✅ Update `PROJECT-ANALYSIS.md` if architecture or technical debt changes
+3. ✅ Update `project-analysis.instructions.md` if architecture or technical debt changes
 4. ✅ Update `README.md` if user-facing features change
 5. ✅ Add entry to `/docs/CHANGELOG.md` for significant changes
 
 **Documentation locations by change type:**
 - API changes → `/docs/technical/` or inline JSDoc
 - Feature changes → `/docs/features.md` + `README.md`
-- Architecture changes → `PROJECT-ANALYSIS.md`
+- Architecture changes → `project-analysis.instructions.md`
 - Setup changes → `README.md` + relevant docs
 - Bug fixes → `/docs/CHANGELOG.md`
 
@@ -155,8 +173,11 @@ When you make ANY change to code, you MUST:
     └── scan-session-management.md
 
 /.github
-├── copilot-instructions.md       # This file
-└── PROJECT-ANALYSIS.md           # ⭐ Complete project health report
+├── copilot-instructions.md       # This file (main guidelines)
+├── instructions/                 # Path-specific instruction files
+│   ├── agent-workflow.instructions.md    # Workflow guide
+│   └── project-analysis.instructions.md  # Project health report
+└── README.md                     # System documentation
 ```
 
 ---
@@ -345,7 +366,7 @@ Before marking any task as complete, ensure:
 - [ ] Inline JSDoc comments added/updated
 - [ ] Relevant `/docs/*.md` files updated
 - [ ] `README.md` updated if user-facing
-- [ ] `PROJECT-ANALYSIS.md` updated if architecture changed
+- [ ] `project-analysis.instructions.md` updated if architecture changed
 - [ ] `/docs/CHANGELOG.md` entry added
 - [ ] Type definitions updated
 - [ ] No TODO comments left in code (create GitHub issues instead)
@@ -376,7 +397,7 @@ See also: [Account Requirements](./account-requirements.md)
 ### Making Changes
 
 1. **Understand the context**
-   - Read `PROJECT-ANALYSIS.md` for current state
+   - Read `project-analysis.instructions.md` for current state
    - Check existing patterns in similar files
    - Review relevant documentation
 
@@ -389,7 +410,7 @@ See also: [Account Requirements](./account-requirements.md)
 3. **Update documentation**
    - Update all relevant docs (see checklist above)
    - Add CHANGELOG entry if significant
-   - Update PROJECT-ANALYSIS.md if needed
+   - Update project-analysis.instructions.md if needed
 
 4. **Review before committing**
    - No console.log() for debugging (use console.error/warn only)
@@ -553,7 +574,7 @@ if (!result.success) {
 ## 🎓 Learning Resources
 
 **For understanding this codebase:**
-1. Read `PROJECT-ANALYSIS.md` - Current state and issues
+1. Read `project-analysis.instructions.md` - Current state and issues
 2. Read `/docs/features.md` - What the app does
 3. Read `/docs/account-requirements.md` - AWS account types
 4. Review `/src/lib/aws-services/` - Service architecture
@@ -648,23 +669,23 @@ export function myFunction(params: MyInterface): Result<Output, Error> {
 ✅ No hard-coded magic numbers  
 ✅ No code duplication introduced  
 ✅ Caching hooks used for all API calls  
-✅ Changes are reflected in PROJECT-ANALYSIS.md if significant  
+✅ Changes are reflected in project-analysis.instructions.md if significant  
 ✅ CHANGELOG.md entry added for notable changes
 
 ---
 
 ## 🤖 Special Instructions for AI Agents
 
-1. **Always read `PROJECT-ANALYSIS.md` first** - It contains complete project context
+1. **Always read `project-analysis.instructions.md` first** - It contains complete project context
 2. **Documentation is not optional** - Update docs for every change
 3. **Ask before breaking patterns** - This project has established patterns
 4. **Prioritize clarity** - Simple, readable code over clever solutions
 5. **Check for existing utilities** - Don't recreate what exists
 6. **Follow the Result pattern** - It's our error handling standard
 7. **Maintain zero `any` usage** - This is a hard requirement
-8. **Update analysis after major changes** - Keep PROJECT-ANALYSIS.md current
+8. **Update analysis after major changes** - Keep project-analysis.instructions.md current
 
 ---
 
 *Last Updated: October 31, 2025*  
-*For project health status, see `.github/PROJECT-ANALYSIS.md`*
+*For project health status, see `.github/project-analysis.instructions.md`*
