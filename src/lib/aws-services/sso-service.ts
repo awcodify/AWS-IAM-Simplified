@@ -42,7 +42,7 @@ export class SSOService {
     maxRetries = 3,
     initialDelay = 1000
   ): Promise<Result<T, Error>> {
-    let lastError: Error = new Error('Unknown error');
+    let lastError: Error | undefined;
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const result = await safeAsync(fn());
@@ -68,7 +68,8 @@ export class SSOService {
       }
     }
     
-    return { success: false, error: lastError };
+    // lastError will always be defined here since we went through at least one iteration
+    return { success: false, error: lastError! };
   }
 
   /**
