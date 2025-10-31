@@ -2,6 +2,8 @@
 
 This guide explains which AWS account credentials you need for each feature of AWS IAM Simplified.
 
+> **💡 Tip**: See [Features Documentation](./features.md) for a complete list of all features.
+
 ## Overview
 
 AWS IAM Simplified connects to different AWS services that may be configured in different accounts within your organization. Understanding which account to use for each feature is crucial for proper functionality.
@@ -189,3 +191,4 @@ A: After logging in, check the dashboard. It will show account capability indica
 - [AWS IAM Identity Center Documentation](https://docs.aws.amazon.com/singlesignon/)
 - [AWS CLI Configuration Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)
 - [Setting up AWS SSO](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
+- [Cross-Account Setup Guide](./setup-cross-account.md) - For management account features
