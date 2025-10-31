@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
-import { SimplifiedAWSService, SSOService } from '@/lib/aws-services';
+import { AWSService, SSOService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Initialize AWS service
-      const awsService = new SimplifiedAWSService(ssoRegion || region, credentials);
+      const awsService = new AWSService(ssoRegion || region, credentials);
       let instanceArn = '';
 
       // Get SSO instance

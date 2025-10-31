@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
-import { SimplifiedAWSService, SSOService } from '@/lib/aws-services';
+import { AWSService, SSOService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { OrganizationUser, PermissionSetDetails } from '@/types/aws';
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     console.log(`Using region: ${region}, SSO region: ${ssoRegion}`);
 
     // Initialize AWS service for permission set details
-    const awsService = new SimplifiedAWSService(ssoRegion || region, credentials);
+    const awsService = new AWSService(ssoRegion || region, credentials);
 
     // Get detailed permission set information
     const enrichedPermissionSets = [];
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     console.log(`Using region: ${region}, SSO region: ${ssoRegion}`);
 
     // Initialize AWS service for permission set details (centralized from org account)
-    const awsService = new SimplifiedAWSService(ssoRegion || region, credentials);
+    const awsService = new AWSService(ssoRegion || region, credentials);
 
     // Check if we have any users with account access data
     const usersWithAccess = users.filter((user: OrganizationUser) => 

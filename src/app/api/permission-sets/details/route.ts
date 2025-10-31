@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SimplifiedAWSService } from '@/lib/aws-services';
+import { AWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   console.log('Extracted instance ARN:', instanceArn);
   console.log('Using SSO region:', ssoRegion);
 
-  const awsService = new SimplifiedAWSService(ssoRegion, credentials);
+  const awsService = new AWSService(ssoRegion, credentials);
 
   // Try to get full permission set details
   console.log('Attempting to fetch permission set details:', {

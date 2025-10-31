@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SimplifiedAWSService } from '@/lib/aws-services';
+import { AWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import { safeAsync } from '@/lib/result';
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }, { status: 401 });
   }
 
-  const awsService = new SimplifiedAWSService(ssoRegion, credentials);
+  const awsService = new AWSService(ssoRegion, credentials);
   
   // Get SSO instance
   const ssoInstancesResult = await safeAsync(awsService.getSSOInstances(ssoRegion));

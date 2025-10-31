@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { SimplifiedAWSService } from '@/lib/aws-services';
+import { AWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { CrossAccountUserAccess } from '@/types/aws';
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     }, { status: 401 });
   }
 
-  const awsService = new SimplifiedAWSService(region, credentials);
+  const awsService = new AWSService(region, credentials);
   const userAccessResult = await awsService.getBulkUserAccountAccess(userIds, ssoRegion);
   
   if (!userAccessResult) {
