@@ -23,9 +23,9 @@ export default function ManagementAccountPage() {
 }
 
 function ManagementAccountContent() {
-  const { awsRegion, ssoRegion } = useRegion();
+  const { awsRegion, identityCenterRegion } = useRegion();
   const { accounts } = useOrganizationAccounts();
-  const capabilities = useAccountCapabilities(awsRegion, ssoRegion);
+  const capabilities = useAccountCapabilities(awsRegion, identityCenterRegion);
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);

@@ -13,7 +13,7 @@ interface UseRegionAPIOptions {
  * when regions change. Useful for API calls that depend on region selection.
  */
 export function useRegionAPI(options: UseRegionAPIOptions = {}) {
-  const { awsRegion, ssoRegion, setAwsRegion } = useRegion();
+  const { awsRegion, identityCenterRegion, setAwsRegion } = useRegion();
   const { onRegionChange, skipInitialCall = false } = options;
   const hasInitialCallRef = useRef(false);
 
@@ -25,13 +25,13 @@ export function useRegionAPI(options: UseRegionAPIOptions = {}) {
         return;
       }
       
-      onRegionChange(awsRegion, ssoRegion);
+      onRegionChange(awsRegion, identityCenterRegion);
     }
-  }, [awsRegion, ssoRegion, onRegionChange, skipInitialCall]);
+  }, [awsRegion, identityCenterRegion, onRegionChange, skipInitialCall]);
 
   return {
     awsRegion,
-    ssoRegion,
+    identityCenterRegion,
     setAwsRegion,
   };
 }

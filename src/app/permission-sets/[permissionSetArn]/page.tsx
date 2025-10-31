@@ -21,7 +21,7 @@ export default function PermissionSetPage() {
 }
 
 function PermissionSetContent() {
-  const { awsRegion, ssoRegion } = useRegion();
+  const { awsRegion, identityCenterRegion } = useRegion();
   const params = useParams();
   const searchParams = useSearchParams();
   const permissionSetArn = decodeURIComponent(params.permissionSetArn as string);
@@ -42,7 +42,7 @@ function PermissionSetContent() {
       const params = new URLSearchParams({
         arn: permissionSetArn,
         region: awsRegion,
-        ssoRegion: ssoRegion
+        ssoRegion: identityCenterRegion
       });
       
       if (fallbackName) {
@@ -65,10 +65,10 @@ function PermissionSetContent() {
       setLoading(false);
     };
 
-    if (permissionSetArn && awsRegion && ssoRegion) {
+    if (permissionSetArn && awsRegion && identityCenterRegion) {
       fetchPermissionSetDetails();
     }
-  }, [permissionSetArn, awsRegion, ssoRegion, fallbackName]);
+  }, [permissionSetArn, awsRegion, identityCenterRegion, fallbackName]);
 
   if (loading) {
     return (

@@ -10,7 +10,7 @@ let permissionSetsCache: { [key: string]: PermissionSetDetails[] } = {};
 let permissionSetsPromises: { [key: string]: Promise<PermissionSetDetails[]> } = {};
 
 export function usePermissionSets() {
-  const { awsRegion, ssoRegion } = useRegion();
+  const { awsRegion, identityCenterRegion } = useRegion();
   const [permissionSets, setPermissionSets] = useState<PermissionSetDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function usePermissionSets() {
   }, []);
 
   useEffect(() => {
-    if (!awsRegion || !ssoRegion) {
+    if (!awsRegion || !identityCenterRegion) {
       setPermissionSets([]);
       return;
     }
@@ -70,7 +70,7 @@ export function usePermissionSets() {
     setLoading(true);
     setError(null);
 
-    fetchPermissionSets(awsRegion, ssoRegion)
+    fetchPermissionSets(awsRegion, identityCenterRegion)
       .then((data) => {
         setPermissionSets(data);
         setLoading(false);
@@ -79,7 +79,7 @@ export function usePermissionSets() {
         setError(err instanceof Error ? err.message : 'Failed to fetch permission sets');
         setLoading(false);
       });
-  }, [awsRegion, ssoRegion, fetchPermissionSets]);
+  }, [awsRegion, identityCenterRegion, fetchPermissionSets]);
 
   const invalidateCache = useCallback((region?: string, ssoRegionParam?: string) => {
     if (region && ssoRegionParam) {
@@ -97,6 +97,6 @@ export function usePermissionSets() {
     loading,
     error,
     invalidateCache,
-    refetch: () => fetchPermissionSets(awsRegion, ssoRegion)
+    refetch: () => fetchPermissionSets(awsRegion, identityCenterRegion)
   };
 }

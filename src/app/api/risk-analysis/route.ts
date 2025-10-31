@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
-import { SimplifiedAWSService } from '@/lib/aws-services';
+import { SimplifiedAWSService, SSOService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { OrganizationUser, PermissionSetDetails } from '@/types/aws';
@@ -74,10 +74,10 @@ export async function POST(request: NextRequest) {
 
       if (currentInstanceArn && permissionSet.arn) {
         console.log(`Getting details for permission set: ${permissionSet.name || permissionSet.arn}`);
-        const permissionSetDetails = await awsService.getPermissionSetDetailsWithInstance(
+        const ssoService = new SSOService(ssoRegion || region, credentials);
+        const permissionSetDetails = await ssoService.getPermissionSetDetails(
           currentInstanceArn,
-          permissionSet.arn,
-          ssoRegion || region
+          permissionSet.arn
         ).catch(() => {
           console.warn(`Failed to get details for permission set ${permissionSet.arn || permissionSet.name}`);
           return null;
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
           };
         });
       
-      // Convert to UserRiskProfile format for compatibility with existing UI
+      // Map to UserRiskProfile format
       const userRiskProfile: UserRiskProfile = {
         userId: permissionSet.arn || permissionSet.name,
         userName: permissionSet.name,
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Original user-based analysis (keep for backward compatibility)
+    // User-based analysis
     if (!users || !Array.isArray(users)) {
       return NextResponse.json(
         { error: 'Users array is required for user-based analysis' },
@@ -257,10 +257,10 @@ export async function POST(request: NextRequest) {
 
       if (currentInstanceArn) {
         console.log(`Getting details for permission set: ${basicPermissionSet.name || psArn}`);
-        const permissionSetDetails = await awsService.getPermissionSetDetailsWithInstance(
+        const ssoService = new SSOService(ssoRegion || region, credentials);
+        const permissionSetDetails = await ssoService.getPermissionSetDetails(
           currentInstanceArn,
-          psArn,
-          ssoRegion || region
+          psArn
         ).catch(() => {
           console.warn(`Failed to get details for permission set ${psArn}`);
           return null;

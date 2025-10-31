@@ -25,8 +25,8 @@ interface NavGroup {
 export default function Navigation() {
   const pathname = usePathname();
   const { session } = useAuth();
-  const { awsRegion, ssoRegion } = useRegion();
-  const capabilities = useAccountCapabilities(awsRegion, ssoRegion);
+  const { awsRegion, identityCenterRegion } = useRegion();
+  const capabilities = useAccountCapabilities(awsRegion, identityCenterRegion);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

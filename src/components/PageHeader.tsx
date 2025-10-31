@@ -8,7 +8,6 @@ interface PageHeaderProps {
   icon: ReactNode;
   children?: ReactNode;
   actions?: ReactNode;
-  centerLayout?: boolean; // For backward compatibility
   rightText?: string; // New prop for right side text (like "Last analyzed:")
   gradientFrom?: string; // Custom gradient start color
   gradientTo?: string; // Custom gradient end color
@@ -20,35 +19,10 @@ export default function PageHeader({
   icon, 
   children,
   actions,
-  centerLayout = false,
   rightText,
   gradientFrom = 'from-red-50',
   gradientTo = 'to-orange-50'
 }: PageHeaderProps) {
-  
-  if (centerLayout) {
-    // Original centered layout for backward compatibility
-    return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="text-center">
-          <div className="flex justify-center mb-3">
-            {icon}
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          <p className="text-gray-600 mt-2">{description}</p>
-
-          {/* Additional content slot */}
-          {children && (
-            <div className="mt-4">
-              {children}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // New flexible layout with actions
   return (
     <div className="bg-white shadow overflow-hidden">
       {/* Header with gradient background - rounded top, conditional bottom rounding */}

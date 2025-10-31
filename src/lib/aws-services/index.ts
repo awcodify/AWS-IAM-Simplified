@@ -85,19 +85,6 @@ export class SimplifiedAWSService {
   }
 
   /**
-   * Get detailed permission set information with explicit instance ARN
-   * (for compatibility with legacy code)
-   */
-  async getPermissionSetDetailsWithInstance(
-    instanceArn: string, 
-    permissionSetArn: string, 
-    ssoRegion?: string
-  ): Promise<PermissionSetDetails | null> {
-    const ssoService = ssoRegion ? new SSOService(ssoRegion, this.credentials) : this.ssoService;
-    return ssoService.getPermissionSetDetails(instanceArn, permissionSetArn);
-  }
-
-  /**
    * Search users by term
    */
   async searchUsers(searchTerm: string): Promise<OrganizationUser[]> {

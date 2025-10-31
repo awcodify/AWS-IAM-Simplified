@@ -617,8 +617,7 @@ export class IAMRiskAnalyzer {
       }
     }
 
-    // Create a UserRiskProfile that actually represents a permission set
-    // (keeping the same interface for compatibility with existing components)
+    // Return risk profile for permission set
     return {
       userId: permissionSet.arn,
       userName: permissionSet.name,

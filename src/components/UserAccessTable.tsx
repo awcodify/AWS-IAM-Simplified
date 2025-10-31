@@ -359,7 +359,7 @@ export default function UserAccessTable({
             });
           }
           
-          // Handle legacy roles
+          // Handle role-based access (when permission sets aren't available)
           if (access.roles && (!access.permissionSets || access.permissionSets.length === 0)) {
             access.roles.forEach(role => {
               const name = role.split('/').pop() || role;
@@ -418,7 +418,7 @@ export default function UserAccessTable({
             });
           }
           
-          // Check legacy roles
+          // Check role-based access (when permission sets aren't available)
           if (access.roles && (!access.permissionSets || (access.permissionSets as unknown[])?.length === 0)) {
             return access.roles.some(role => {
               const name = role.split('/').pop() || role;
@@ -1187,7 +1187,7 @@ export default function UserAccessTable({
                                     </div>
                                   )}
                                   
-                                  {/* Legacy roles display */}
+                                  {/* Role-based access display (when permission sets aren't available) */}
                                   {access.roles && access.roles.length > 0 && (!access.permissionSets || access.permissionSets.length === 0) && (
                                     <div>
                                       <div className="text-xs text-gray-600 mb-1">Permission Sets:</div>

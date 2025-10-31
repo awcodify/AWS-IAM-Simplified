@@ -21,8 +21,8 @@ export default function IAMPage() {
 }
 
 function IAMContent() {
-  const { awsRegion, ssoRegion } = useRegion();
-  const capabilities = useAccountCapabilities(awsRegion, ssoRegion);
+  const { awsRegion, identityCenterRegion } = useRegion();
+  const capabilities = useAccountCapabilities(awsRegion, identityCenterRegion);
   const { users, loading, error, accountId, refetch } = useIAMUsers(awsRegion);
   const [selectedUser, setSelectedUser] = useState<OrganizationUser | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
