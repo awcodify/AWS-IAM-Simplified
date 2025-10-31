@@ -10,7 +10,7 @@ import {
   ListCustomerManagedPolicyReferencesInPermissionSetCommand
 } from '@aws-sdk/client-sso-admin';
 import type { PermissionSetDetails, CrossAccountUserAccess, OrganizationAccount } from '@/types/aws';
-import { safeAsync } from '@/lib/result';
+import { safeAsync, type Result } from '@/lib/result';
 import { Optional } from '@/lib/optional';
 import type { AWSCredentials } from './account-service';
 
@@ -41,14 +41,14 @@ export class SSOService {
     fn: () => Promise<T>,
     maxRetries = 3,
     initialDelay = 1000
-  ): Promise<{ success: true; data: T } | { success: false; error: any }> {
-    let lastError: any;
+  ): Promise<Result<T, Error>> {
+    let lastError: Error = new Error('Unknown error');
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const result = await safeAsync(fn());
       
       if (result.success) {
-        return { success: true, data: result.data };
+        return result;
       }
       
       lastError = result.error;
@@ -64,7 +64,7 @@ export class SSOService {
         }
       } else {
         // Not a throttling error, don't retry
-        return { success: false, error: result.error };
+        return result;
       }
     }
     
