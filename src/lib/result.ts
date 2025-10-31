@@ -43,3 +43,18 @@ export async function safeSync<T>(
       (error) => Err(error instanceof Error ? error : new Error(String(error)))
     );
 }
+
+/**
+ * Safe synchronous operation handler for truly sync operations
+ * Returns Result immediately without Promise wrapping
+ */
+export function safeSyncOperation<T>(
+  operation: () => T
+): Result<T, Error> {
+  try {
+    const data = operation();
+    return Ok(data);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}

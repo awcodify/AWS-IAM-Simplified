@@ -18,7 +18,7 @@ import {
   ListAccessKeysCommand
 } from '@aws-sdk/client-iam';
 import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission, AccessKey } from '@/types/aws';
-import { safeAsync, safeSync } from '@/lib/result';
+import { safeAsync, safeSyncOperation } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 
 /**
@@ -166,14 +166,14 @@ export class UserService {
    */
   private async parsePolicyDocument(policyDocument: string): Promise<PolicyPermission[]> {
     // Decode URI component
-    const decodeResult = await safeSync(() => decodeURIComponent(policyDocument));
+    const decodeResult = safeSyncOperation(() => decodeURIComponent(policyDocument));
     if (!decodeResult.success) {
       console.warn('Failed to decode policy document:', decodeResult.error);
       return [];
     }
     
     // Parse JSON
-    const parseResult = await safeSync(() => JSON.parse(decodeResult.data));
+    const parseResult = safeSyncOperation(() => JSON.parse(decodeResult.data));
     if (!parseResult.success) {
       console.warn('Failed to parse policy document:', parseResult.error);
       return [];
