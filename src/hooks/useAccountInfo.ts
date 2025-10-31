@@ -5,8 +5,16 @@ import { useRegion } from '@/contexts/RegionContext';
 import { createAuthHeaders } from '@/lib/credentials';
 import type { AccountInfo } from '@/types/aws';
 
-// Shared cache for account info
-let accountInfoCache: { [region: string]: AccountInfo | null } = {};
+// Cache TTL in milliseconds (5 minutes)
+const CACHE_TTL = 5 * 60 * 1000;
+
+// Shared cache for account info with timestamps
+interface CacheEntry {
+  data: AccountInfo | null;
+  timestamp: number;
+}
+
+let accountInfoCache: { [region: string]: CacheEntry } = {};
 let accountInfoPromises: { [region: string]: Promise<AccountInfo | null> } = {};
 
 export function useAccountInfo() {
@@ -16,6 +24,15 @@ export function useAccountInfo() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAccountInfo = useCallback(async (region: string): Promise<AccountInfo | null> => {
+    // Check if we have a valid cached entry
+    const cachedEntry = accountInfoCache[region];
+    const now = Date.now();
+    
+    if (cachedEntry && (now - cachedEntry.timestamp) < CACHE_TTL) {
+      // Return cached data if still fresh
+      return cachedEntry.data;
+    }
+
     // Return existing promise if already fetching
     if (region in accountInfoPromises) {
       return accountInfoPromises[region];
@@ -23,12 +40,18 @@ export function useAccountInfo() {
 
     // Create new fetch promise
     const promise = fetch(`/api/account?region=${encodeURIComponent(region)}`, {
-      cache: 'no-cache',
+      cache: 'force-cache',
       headers: createAuthHeaders()
     })
       .then(async (response) => {
         const result = await response.json();
         const data = result.success ? result.data : null;
+        
+        // Cache the result with timestamp
+        accountInfoCache[region] = {
+          data,
+          timestamp: Date.now()
+        };
         
         // Clear the promise
         delete accountInfoPromises[region];
