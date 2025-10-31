@@ -2,7 +2,6 @@ import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { 
   OrganizationsClient, 
   DescribeAccountCommand,
-  AWSOrganizationsNotInUseException
 } from '@aws-sdk/client-organizations';
 import { IAMClient, ListAccountAliasesCommand } from '@aws-sdk/client-iam';
 import type { AccountInfo } from '@/types/aws';
