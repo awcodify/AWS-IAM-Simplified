@@ -24,13 +24,24 @@ This is a Next.js TypeScript project for simplifying AWS IAM management. The mai
 - Avoid using try & catch
 
 ## AWS Integration Notes
-- Use environment variables for AWS configuration
-- Implement proper credential handling
+- Credentials are stored in browser localStorage (entered via login page)
+- Implement proper credential handling with AuthContext
 - Focus on IAM user permissions and resource access
 - Keep API calls efficient and minimal
+- Use caching hooks to prevent duplicate API calls
+
+## Authentication
+- Web-based login with AWS credentials (Access Key ID + Secret Access Key)
+- Credentials stored in localStorage
+- AuthContext provides credentials to all API calls
+- AuthGuard protects all authenticated pages
 
 ## File Structure
 - `/src/app` - Next.js App Router pages and layouts
 - `/src/components` - Reusable React components
 - `/src/lib` - Utility functions and AWS service wrappers
+  - `/src/lib/aws-services` - Modular AWS service architecture
+- `/src/hooks` - Custom hooks for data fetching with caching
+- `/src/contexts` - React contexts (Auth, Region)
 - `/src/types` - TypeScript type definitions
+- `/docs` - Project documentation
