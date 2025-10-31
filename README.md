@@ -343,7 +343,7 @@ docker run -p 3000:3000 aws-iam-dashboard
 
 After starting the container, navigate to the application and login with your AWS credentials through the web interface.
 
-## � Documentation
+## 📚 Documentation
 
 For detailed documentation, see the [`docs/`](./docs/) folder:
 
