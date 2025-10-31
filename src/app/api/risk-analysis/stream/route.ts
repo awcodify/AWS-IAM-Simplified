@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { riskAnalyzer } from '@/lib/risk-analyzer';
-import { SimplifiedAWSService } from '@/lib/aws-services';
+import { SimplifiedAWSService, SSOService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 
@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
           progress: Math.round(((i) / permissionSets.length) * 100)
         });
 
-        const enrichedPermissionSet = await awsService.getPermissionSetDetailsWithInstance(
+        const ssoService = new SSOService(ssoRegion || region, credentials);
+        const enrichedPermissionSet = await ssoService.getPermissionSetDetails(
           instanceArn,
-          permissionSet.arn,
-          ssoRegion || region
+          permissionSet.arn
         ).catch(() => {
           console.warn(`Failed to get details for ${permissionSet.name}`);
           return permissionSet;

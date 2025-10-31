@@ -71,11 +71,7 @@ export function useRegion() {
     throw new Error('useRegion must be used within a RegionProvider');
   }
   
-  // Return with backward compatibility alias
-  return {
-    ...context,
-    ssoRegion: context.identityCenterRegion, // Backward compatibility
-  };
+  return context;
 }
 
 export default RegionContext;

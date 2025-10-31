@@ -21,10 +21,10 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { awsRegion, ssoRegion } = useRegion();
+  const { awsRegion, identityCenterRegion } = useRegion();
   const { permissionSets } = usePermissionSets();
   const { accounts } = useOrganizationAccounts();
-  const capabilities = useAccountCapabilities(awsRegion, ssoRegion);
+  const capabilities = useAccountCapabilities(awsRegion, identityCenterRegion);
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
     totalPermissionSets: 0,
@@ -33,7 +33,7 @@ export default function Dashboard() {
   });
 
   const fetchMetrics = useCallback(async () => {
-    if (!awsRegion || !ssoRegion) {
+    if (!awsRegion || !identityCenterRegion) {
       setMetrics(prev => ({ ...prev, loading: false }));
       return;
     }
@@ -41,7 +41,7 @@ export default function Dashboard() {
     setMetrics(prev => ({ ...prev, loading: true }));
     
     // Only fetch users count (permission sets and accounts come from hooks)
-    const usersResponse = await fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(ssoRegion)}&region=${encodeURIComponent(awsRegion)}&page=1&limit=1&ssoOnly=false`, {
+    const usersResponse = await fetch(`/api/organization/users?ssoRegion=${encodeURIComponent(identityCenterRegion)}&region=${encodeURIComponent(awsRegion)}&page=1&limit=1&ssoOnly=false`, {
       cache: 'no-store',
       headers: createAuthHeaders()
     });
@@ -54,7 +54,7 @@ export default function Dashboard() {
       totalAccounts: accounts.length,
       loading: false
     });
-  }, [awsRegion, ssoRegion, permissionSets.length, accounts.length]);
+  }, [awsRegion, identityCenterRegion, permissionSets.length, accounts.length]);
 
   useEffect(() => {
     fetchMetrics();
