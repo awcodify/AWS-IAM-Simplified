@@ -95,7 +95,7 @@ The application automatically detects your account's capabilities and displays a
 ### Prerequisites
 
 - Node.js 18+ installed
-- AWS credentials configured (see setup below)
+- AWS IAM user credentials (Access Key ID and Secret Access Key)
 - Understanding of which AWS account to use (see [ACCOUNT_REQUIREMENTS.md](./ACCOUNT_REQUIREMENTS.md))
 
 ### Installation
@@ -107,60 +107,30 @@ cd aws-iam-simplified
 npm install
 ```
 
-2. Set up AWS credentials (choose one method):
-
-**Option A: AWS SSO (Recommended for Multiple Accounts)**
+2. Run the development server:
 ```bash
-# Configure SSO for management account
-aws configure sso --profile management
-
-# Configure SSO for SSO-admin account (if different)
-aws configure sso --profile sso-admin
-
-# Use the appropriate profile
-export AWS_PROFILE=management
+npm run dev
 ```
 
-**Option B: AWS CLI**
-```bash
-aws configure
-```
+3. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-**Option C: Environment Variables**
-```bash
-cp .env.example .env.local
-# Edit .env.local with your AWS credentials and region settings
-```
+4. Login with your AWS credentials:
+   - Enter your AWS Access Key ID
+   - Enter your AWS Secret Access Key
+   - Select your AWS region
+   - Your credentials are securely stored in your browser's localStorage
 
-### Environment Configuration
+### Region Configuration
 
 The application supports two types of region configuration:
 
 1. **AWS Operations Region**: Used for IAM, Organizations, and general AWS service calls
 2. **IAM Identity Center Region**: Used for Identity Center (SSO) operations
 
-#### Option 1: Configure via Environment Variables (Optional)
+**Configure regions via Settings Page:**
 
-Create a `.env.local` file:
-
-```bash
-# AWS Profile (if using AWS CLI profiles)
-AWS_PROFILE=your-aws-profile-name
-
-# Default IAM Identity Center region (optional - can be changed in UI)
-NEXT_PUBLIC_AWS_SSO_REGION=us-east-1
-
-# Default AWS Operations region (optional - can be changed in UI)
-NEXT_PUBLIC_AWS_DEFAULT_REGION=us-east-1
-```
-
-#### Option 2: Configure via Settings Page (Recommended)
-
-Both regions can be configured directly in the application:
-
-1. Login to the application
-2. Navigate to **Settings** → **Regions** tab
-3. Configure both:
+1. After logging in, navigate to **Settings** → **Regions** tab
+2. Configure both regions:
    - **AWS Operations Region**: Primary region for IAM and Organizations
    - **IAM Identity Center Region**: Region where your Identity Center is deployed
 
@@ -168,14 +138,7 @@ Both regions can be configured directly in the application:
 - Both regions are saved in your browser's localStorage and persist across sessions
 - The **Identity Center Region** must match where your IAM Identity Center is actually deployed
 - The **AWS Operations Region** can be changed based on your needs
-- During login, you'll select the AWS Operations region (all 21 AWS regions available)
-
-3. Run the development server:
-```bash
-npm run dev
-```
-
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+- You can also select the AWS Operations region during login (all 21 AWS regions available)
 
 ## 🔧 AWS Setup
 
@@ -259,23 +222,6 @@ Role name: `OrganizationAccountAccessRole` (default) or customize in the code.
   ]
 }
 ```
-
-### Credential Configuration
-
-**Method 1: AWS CLI (Recommended)**
-```bash
-aws configure
-```
-
-**Method 2: Environment Variables**
-```bash
-export AWS_ACCESS_KEY_ID=your_access_key
-export AWS_SECRET_ACCESS_KEY=your_secret_key
-export AWS_REGION=us-east-1
-```
-
-**Method 3: IAM Roles (for EC2/Lambda)**
-- Attach the IAM role with required permissions to your EC2 instance or Lambda function
 
 ## 🏗️ Tech Stack
 
@@ -385,11 +331,15 @@ npm run build
 vercel
 ```
 
+After deployment, access your app and login with your AWS credentials through the web interface.
+
 ### Docker
 ```bash
 docker build -t aws-iam-dashboard .
-docker run -p 3000:3000 -e AWS_ACCESS_KEY_ID=xxx -e AWS_SECRET_ACCESS_KEY=xxx aws-iam-dashboard
+docker run -p 3000:3000 aws-iam-dashboard
 ```
+
+After starting the container, navigate to the application and login with your AWS credentials through the web interface.
 
 ## 📝 License
 

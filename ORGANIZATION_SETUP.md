@@ -19,7 +19,11 @@ Cross-account roles are **optional** for basic functionality (viewing users and 
 
 ## Step 1: Verify Management Account
 
-Check if you're in the management account:
+The application automatically detects if you're using a management account when you login. You'll see a green "Management Account" badge on the dashboard if detected.
+
+**Optional: Verify via AWS CLI (if installed)**
+
+If you want to verify manually before logging in:
 
 ```bash
 aws organizations describe-organization

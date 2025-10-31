@@ -83,94 +83,59 @@ aws sso-admin list-instances
 - ❌ Cannot load permission sets - Wrong account
 - ❌ Incomplete risk analysis - Missing permissions to read policies
 
+
 ---
 
 ## Setting Up Credentials
 
-### Option 1: AWS SSO Login (Recommended)
+The application uses a web-based login system where you enter your AWS credentials directly:
 
+1. Start the application:
 ```bash
-# Configure SSO profile for management account
-aws configure sso
-# Follow prompts to set up management account profile
-
-# Use the profile
-export AWS_PROFILE=management-account
-
-# Start the application
 npm run dev
 ```
 
-### Option 2: Environment Variables
+2. Open [http://localhost:3000](http://localhost:3000)
 
-```bash
-# For management account access
-export AWS_ACCESS_KEY_ID=your_access_key
-export AWS_SECRET_ACCESS_KEY=your_secret_key
-export AWS_REGION=us-east-1
+3. Login with your AWS credentials:
+   - Enter your AWS Access Key ID
+   - Enter your AWS Secret Access Key  
+   - Select your AWS region
+   - Credentials are securely stored in browser's localStorage
 
-npm run dev
-```
-
-### Option 3: Switch Profiles During Use
-
-You can switch AWS profiles without restarting the application:
-
-```bash
-# Terminal 1: Start the app
-npm run dev
-
-# Terminal 2: Switch profile
-export AWS_PROFILE=management-account
-
-# The app will use the new profile for subsequent requests
-```
+4. To switch accounts:
+   - Logout from the current session
+   - Login again with different AWS credentials
 
 ## Best Practices
 
-### 1. **Use AWS SSO for Multiple Accounts**
-If your organization uses AWS SSO, configure profiles for each account you need:
-
-```bash
-# Management account profile
-aws configure sso --profile management
-
-# SSO admin account profile (if delegated)
-aws configure sso --profile sso-admin
-```
+### 1. **Use Different Credentials for Different Features**
+Depending on which features you need, login with the appropriate AWS account:
+- Management account for organization features
+- SSO-enabled account for permission sets and risk analysis
+- Any account for local IAM user features
 
 ### 2. **Verify Before Use**
-Before accessing a feature, verify you're using the correct credentials:
-
-```bash
-# Check current identity
-aws sts get-caller-identity
-
-# Should show the account ID you expect
-```
+The dashboard automatically detects your account capabilities and shows indicators for:
+- Management account access
+- IAM account access
+- Identity Center availability
 
 ### 3. **Keep Credentials Secure**
-- Never commit credentials to version control
-- Use environment variables or AWS SSO
+- Never share your AWS credentials
 - Rotate access keys regularly
 - Use least-privilege IAM policies
+- Logout when finished using the application
 
 ## Troubleshooting
 
 ### "I see limited data or errors"
 
-**Solution:** Check if you're using the correct account for that feature.
+**Solution:** Check if you're logged in with the correct account credentials for that feature.
 
-```bash
-# 1. Check current account
-aws sts get-caller-identity
-
-# 2. Check if it's the management account
-aws organizations describe-organization
-
-# 3. Check if SSO is available
-aws sso-admin list-instances
-```
+The dashboard shows account capability indicators that help you verify:
+- ✅ Green badge = Account has access to this feature
+- ❌ Red badge = Account doesn't have access or missing permissions
 
 ### "Permission denied errors"
 
@@ -190,16 +155,16 @@ aws sso-admin list-instances
 ### "No data showing up"
 
 **Possible causes:**
-1. Wrong AWS account credentials
+1. Wrong AWS account credentials entered
 2. Wrong AWS region selected
 3. No data exists in that account
 4. Insufficient IAM permissions
 
 **Debug steps:**
-1. Verify account: `aws sts get-caller-identity`
-2. Verify region: Check region selector in app
-3. Verify permissions: Try AWS CLI commands manually
-4. Check browser console for API errors
+1. Check account ID displayed in the header
+2. Verify region in Settings page
+3. Check account capability indicators on dashboard
+4. Try logging out and back in with correct credentials
 
 ## FAQ
 
@@ -210,13 +175,13 @@ A: No, you must use the management account. Member accounts don't have permissio
 A: Use credentials for the delegated administrator account when accessing Permission Sets and Risk Analysis features.
 
 **Q: Do I need to restart the app when switching accounts?**  
-A: No, you can switch AWS profiles in your terminal. The app will use the new profile for new requests. You may need to refresh the page.
+A: No, simply logout and login with different credentials. The app will immediately use the new account.
 
 **Q: Can I use the same account for all features?**  
 A: Yes, if your management account also has IAM Identity Center enabled, you can use it for all features.
 
 **Q: How do I know which account has SSO enabled?**  
-A: Run `aws sso-admin list-instances` in each account. The account that returns SSO instance details is your SSO-enabled account.
+A: After logging in, check the dashboard. It will show account capability indicators including whether Identity Center is available in that account.
 
 ## Additional Resources
 
