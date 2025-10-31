@@ -179,3 +179,21 @@ export interface AccountResponse {
   data?: AccountInfo;
   error?: string;
 }
+
+// AWS SDK Error types
+export interface AWSServiceError extends Error {
+  name: string;
+  message: string;
+  $fault?: 'client' | 'server';
+  $metadata?: {
+    httpStatusCode?: number;
+    requestId?: string;
+    attempts?: number;
+    totalRetryDelay?: number;
+  };
+  __type?: string;
+}
+
+export interface AWSThrottlingError extends AWSServiceError {
+  name: 'ThrottlingException' | 'TooManyRequestsException';
+}

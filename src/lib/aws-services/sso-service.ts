@@ -12,6 +12,7 @@ import {
 import type { PermissionSetDetails, CrossAccountUserAccess, OrganizationAccount } from '@/types/aws';
 import { safeAsync, type Result } from '@/lib/result';
 import { Optional } from '@/lib/optional';
+import { isThrottlingError } from '@/lib/utils/error-guards';
 import type { AWSCredentials } from './account-service';
 
 /**
@@ -53,9 +54,8 @@ export class SSOService {
       
       lastError = result.error;
       
-      // Check if it's a throttling error
-      const errorName = (result.error as any)?.name || (result.error as any)?.__type;
-      if (errorName === 'ThrottlingException' || errorName === 'TooManyRequestsException') {
+      // Check if it's a throttling error using type guard
+      if (isThrottlingError(result.error)) {
         if (attempt < maxRetries) {
           const delayMs = initialDelay * Math.pow(2, attempt);
           console.log(`Throttled, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
