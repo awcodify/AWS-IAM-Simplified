@@ -15,8 +15,7 @@ export function useAccountInfo() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAccountInfo = useCallback(async (region: string, skipCache = false): Promise<AccountInfo | null> => {
-    // Skip in-memory cache for now to always get fresh data with account names
+  const fetchAccountInfo = useCallback(async (region: string): Promise<AccountInfo | null> => {
     // Return existing promise if already fetching
     if (region in accountInfoPromises) {
       return accountInfoPromises[region];
@@ -24,15 +23,12 @@ export function useAccountInfo() {
 
     // Create new fetch promise
     const promise = fetch(`/api/account?region=${encodeURIComponent(region)}`, {
-      cache: 'no-cache', // Changed from 'force-cache' to get fresh data
+      cache: 'no-cache',
       headers: createAuthHeaders()
     })
       .then(async (response) => {
         const result = await response.json();
         const data = result.success ? result.data : null;
-        
-        // Don't cache for now to always get fresh account info
-        // accountInfoCache[region] = data;
         
         // Clear the promise
         delete accountInfoPromises[region];
@@ -78,7 +74,7 @@ export function useAccountInfo() {
 
   const refetch = useCallback(() => {
     invalidateCache(awsRegion);
-    return fetchAccountInfo(awsRegion, true);
+    return fetchAccountInfo(awsRegion);
   }, [awsRegion, fetchAccountInfo, invalidateCache]);
 
   return {
