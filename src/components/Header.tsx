@@ -88,21 +88,19 @@ export default function Header() {
             {accountInfo && (
               <div className="flex items-center space-x-3 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-gray-700">Connected</span>
-                </div>
-                <div className="h-4 w-px bg-gray-300"></div>
-                <div className="flex items-center space-x-2">
                   <User className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-semibold text-gray-900">
                     {accountInfo.userId?.split(':')[1] || accountInfo.userId}
                   </span>
                 </div>
+                {accountInfo.accountName && (
+                  <>
+                    <div className="h-4 w-px bg-gray-300"></div>
+                    <span className="text-sm font-medium text-gray-900">{accountInfo.accountName}</span>
+                  </>
+                )}
                 <div className="h-4 w-px bg-gray-300"></div>
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-gray-600">Account:</span>
-                  <span className="text-xs font-medium text-gray-900">{accountInfo.accountId}</span>
-                </div>
+                <span className="text-sm text-gray-600">{accountInfo.accountId}</span>
               </div>
             )}
 

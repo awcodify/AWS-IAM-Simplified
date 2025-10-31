@@ -86,6 +86,7 @@ export interface ResourceAccess {
 
 export interface AccountInfo {
   accountId: string;
+  accountName?: string;
   arn: string;
   userId: string;
 }

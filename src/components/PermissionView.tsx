@@ -6,9 +6,10 @@ import type { UserPermissions } from '@/types/aws';
 interface PermissionViewProps {
   userPermissions: UserPermissions;
   accountId: string;
+  accountName?: string;
 }
 
-export default function PermissionView({ userPermissions, accountId }: PermissionViewProps) {
+export default function PermissionView({ userPermissions, accountId, accountName }: PermissionViewProps) {
   const { user, attachedPolicies, inlinePolicies, groups } = userPermissions;
 
   const formatDate = (date: Date) => {
@@ -28,7 +29,9 @@ export default function PermissionView({ userPermissions, accountId }: Permissio
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{user.UserName}</h2>
-            <p className="text-sm text-gray-500 mt-1">Account: {accountId}</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Account: {accountName ? `${accountName} (${accountId})` : accountId}
+            </p>
             <div className="flex items-center mt-2 text-sm text-gray-600">
               <Clock className="h-4 w-4 mr-1" />
               Created: {formatDate(user.CreateDate)}
