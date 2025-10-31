@@ -352,7 +352,7 @@ For detailed documentation, see the [`docs/`](./docs/) folder:
 - **[Cross-Account Setup](./docs/setup-cross-account.md)** - Setting up cross-account access
 - **[Technical Documentation](./docs/technical/)** - Architecture and implementation details
 
-## �📝 License
+## 📝 License
 
 MIT License - feel free to use this project for your own AWS IAM management needs!
 
