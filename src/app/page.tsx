@@ -64,16 +64,6 @@ export default function Dashboard() {
     <AuthGuard>
       <PageLayout>
         <div className="space-y-8">
-          {/* Dashboard Header */}
-          <div className="bg-white border-b border-gray-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">AWS IAM Simplified</h1>
-                <p className="text-gray-600 text-lg">Overview of your organization&apos;s IAM landscape</p>
-              </div>
-            </div>
-          </div>
-
           {/* Account Capability Indicators */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
