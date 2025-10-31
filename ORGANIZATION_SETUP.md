@@ -1,6 +1,15 @@
-# Organization Setup Guide
+# Cross-Account Setup Guide for Management Account Features
 
-This guide helps you set up AWS Organizations cross-account access for the organization view.
+This guide helps you set up AWS Organizations cross-account access for the Management Account Features page (`/accounts/management`).
+
+## Overview
+
+The Management Account Features page allows you to:
+- View organization-wide users from IAM Identity Center
+- See all accounts in your AWS Organization
+- Verify cross-account access for users (optional, requires cross-account roles)
+
+Cross-account roles are **optional** for basic functionality (viewing users and accounts), but **required** if you want to verify which IAM users have access in each member account.
 
 ## Prerequisites
 
@@ -124,7 +133,13 @@ aws iam attach-role-policy \
 
 ## Step 4: Test the Setup
 
-Once roles are created in member accounts, test the organization view in the dashboard. Users from the management account should show their access status across all organization accounts.
+Once roles are created in member accounts, test the Management Account Features page at `/accounts/management`. Users from the management account should show their access status across all organization accounts.
+
+## Note on Identity Center Users
+
+The Management Account Features page primarily displays users from **IAM Identity Center** (AWS SSO). These are centrally managed users that can be assigned access to multiple accounts through permission sets.
+
+If you don't have Identity Center enabled, the page will fall back to showing IAM users from the management account.
 
 ## Troubleshooting
 
@@ -136,7 +151,14 @@ Once roles are created in member accounts, test the organization view in the das
 - Check that the cross-account role exists in the member account
 - Verify the trust policy allows your management account
 - Ensure the role has the required IAM permissions
+- **Note**: This only affects cross-account access verification, not basic user listing
+
+### No users showing up
+- Verify IAM Identity Center is configured in your organization
+- Check that users exist in the Identity Center directory
+- Ensure you have permissions to list Identity Center users
 
 ### Performance Considerations
 - Checking user access across many accounts can take time
-- Consider limiting the number of accounts or implementing caching for production use
+- The bulk access loading feature optimizes this by batching requests
+- Consider the number of accounts when planning for production use
