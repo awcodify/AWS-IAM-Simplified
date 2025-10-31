@@ -5,6 +5,7 @@ import {
 import { 
   IAMClient, 
   ListUsersCommand,
+  GetUserCommand,
   ListAttachedUserPoliciesCommand,
   ListUserPoliciesCommand,
   GetUserPolicyCommand,
@@ -179,6 +180,13 @@ export class UserService {
     }
     
     const policy = parseResult.data;
+    
+    // Guard against missing or invalid Statement property
+    if (!policy.Statement) {
+      console.warn('Policy document has no Statement property');
+      return [];
+    }
+    
     const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
     
     return statements.map((statement: any) => ({
@@ -295,6 +303,23 @@ export class UserService {
    * Get comprehensive IAM user permissions including policies and groups
    */
   async getIAMUserPermissions(userName: string): Promise<UserPermissions | null> {
+    // Get actual user details first
+    const getUserCommand = new GetUserCommand({ UserName: userName });
+    const userResult = await safeAsync(this.iamClient.send(getUserCommand));
+    
+    if (!userResult.success || !userResult.data.User) {
+      console.warn(`Failed to get user details for ${userName}:`, userResult.success ? 'User not found' : userResult.error);
+      return null;
+    }
+
+    const iamUser: IAMUser = {
+      UserName: userResult.data.User.UserName!,
+      UserId: userResult.data.User.UserId!,
+      Arn: userResult.data.User.Arn!,
+      CreateDate: userResult.data.User.CreateDate!,
+      Path: userResult.data.User.Path!
+    };
+
     // Get attached managed policies
     const attachedPoliciesCommand = new ListAttachedUserPoliciesCommand({ 
       UserName: userName 
@@ -372,13 +397,7 @@ export class UserService {
     );
 
     return {
-      user: {
-        UserName: userName,
-        UserId: '',
-        Arn: '',
-        CreateDate: new Date(),
-        Path: '/'
-      },
+      user: iamUser,
       attachedPolicies,
       inlinePolicies,
       groups: groupsWithPolicies,
