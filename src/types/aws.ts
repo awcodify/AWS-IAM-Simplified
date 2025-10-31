@@ -53,6 +53,25 @@ export interface PolicyPermission {
   conditions?: Record<string, unknown>;
 }
 
+// IAM Policy Document types
+export interface IAMPolicyStatement {
+  Sid?: string;
+  Effect?: 'Allow' | 'Deny';
+  Action?: string | string[];
+  NotAction?: string | string[];
+  Resource?: string | string[];
+  NotResource?: string | string[];
+  Condition?: Record<string, Record<string, string | string[]>>;
+  Principal?: string | Record<string, string | string[]>;
+  NotPrincipal?: string | Record<string, string | string[]>;
+}
+
+export interface IAMPolicyDocument {
+  Version?: string;
+  Id?: string;
+  Statement: IAMPolicyStatement | IAMPolicyStatement[];
+}
+
 export interface UserGroup {
   GroupName: string;
   Arn: string;

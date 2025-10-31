@@ -4,10 +4,11 @@ import type {
   RiskCategory,
   PolicyAnalysisResult
 } from '@/types/risk-analysis';
+import type { IAMPolicyDocument, IAMPolicyStatement } from '@/types/aws';
 import {
   SENSITIVE_ACTIONS
 } from '@/types/risk-analysis';
-import { safeSync } from '@/lib/result';
+import { safeSyncOperation } from '@/lib/result';
 
 /**
  * Simple policy analyzer focused on analyzing individual policies
@@ -15,6 +16,21 @@ import { safeSync } from '@/lib/result';
 export class PolicyAnalyzer {
   private generateFindingId(): string {
     return `finding-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Type guard to check if value is a valid IAM Policy Document
+   */
+  private isValidPolicyDocument(value: unknown): value is IAMPolicyDocument {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    
+    const doc = value as Record<string, unknown>;
+    return 'Statement' in doc && (
+      Array.isArray(doc.Statement) || 
+      typeof doc.Statement === 'object'
+    );
   }
 
   /**
@@ -64,25 +80,24 @@ export class PolicyAnalyzer {
     let adminPermissions = false;
     const crossAccountAccess = false;
 
-    const policy = await this.parsePolicyDocument(policyDocument);
+    const policy = this.parsePolicyDocument(policyDocument);
     if (!policy?.Statement) {
       return this.createEmptyAnalysisResult(policyName);
     }
 
-    const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
+    const statements: IAMPolicyStatement[] = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
 
     for (const statement of statements) {
       if (!statement || typeof statement !== 'object' || statement.Effect !== 'Allow') continue;
 
-      const statementObj = statement as Record<string, unknown>;
-      const actions = this.normalizeToArray(statementObj.Action);
-      const resources = this.normalizeToArray(statementObj.Resource);
+      const actions = this.normalizeToArray(statement.Action);
+      const resources = this.normalizeToArray(statement.Resource);
 
       totalPermissions += actions.length;
 
       // Analyze actions for risks
       for (const action of actions) {
-        this.analyzeAction(action, statementObj, findings, servicePermissions, policyName);
+        this.analyzeAction(action, statement, findings, servicePermissions, policyName);
         
         if (action === '*') {
           adminPermissions = true;
@@ -96,7 +111,7 @@ export class PolicyAnalyzer {
 
       // Check for overly broad resource access
       if (resources.includes('*')) {
-        findings.push(this.createWildcardResourceFinding(statementObj, policyName));
+        findings.push(this.createWildcardResourceFinding(statement, policyName));
       }
     }
 
@@ -126,9 +141,13 @@ export class PolicyAnalyzer {
     return policyArn.includes('PowerUserAccess');
   }
 
-  private async parsePolicyDocument(policyDocument: string): Promise<Record<string, unknown> | null> {
-    const result = await safeSync(() => JSON.parse(policyDocument));
-    return result.success ? result.data : null;
+  private parsePolicyDocument(policyDocument: string): IAMPolicyDocument | null {
+    const result = safeSyncOperation<unknown>(() => JSON.parse(policyDocument));
+    if (!result.success) {
+      return null;
+    }
+    
+    return this.isValidPolicyDocument(result.data) ? result.data : null;
   }
 
   private normalizeToArray(value: unknown): string[] {
@@ -189,7 +208,7 @@ export class PolicyAnalyzer {
     };
   }
 
-  private createWildcardResourceFinding(statement: Record<string, unknown>, policyName: string): RiskFinding {
+  private createWildcardResourceFinding(statement: IAMPolicyStatement, policyName: string): RiskFinding {
     return {
       id: this.generateFindingId(),
       title: 'Wildcard Resource Access',
@@ -208,7 +227,7 @@ export class PolicyAnalyzer {
 
   private analyzeAction(
     action: string, 
-    statement: Record<string, unknown>, 
+    statement: IAMPolicyStatement, 
     findings: RiskFinding[], 
     servicePermissions: Record<string, string[]>,
     policyName: string
