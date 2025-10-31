@@ -1,4 +1,5 @@
 // Risk analysis types for IAM permission analysis
+import type { IAMPolicyDocument } from './aws';
 
 export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
@@ -32,7 +33,7 @@ export type RiskCategory =
 export interface PolicyAnalysisResult {
   policyArn?: string;
   policyName: string;
-  policyDocument: Record<string, unknown> | null;
+  policyDocument: IAMPolicyDocument | null;
   findings: RiskFinding[];
   permissionsCount: number;
   wildcardActionsCount: number;

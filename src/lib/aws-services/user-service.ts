@@ -17,7 +17,7 @@ import {
   GetGroupPolicyCommand,
   ListAccessKeysCommand
 } from '@aws-sdk/client-iam';
-import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission, AccessKey } from '@/types/aws';
+import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission, AccessKey, IAMPolicyDocument, IAMPolicyStatement } from '@/types/aws';
 import { safeAsync, safeSyncOperation } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 
@@ -162,6 +162,43 @@ export class UserService {
   }
 
   /**
+   * Type guard to check if value is a valid IAM Policy Document
+   */
+  private isValidPolicyDocument(value: unknown): value is IAMPolicyDocument {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    
+    const doc = value as Record<string, unknown>;
+    return 'Statement' in doc && (
+      Array.isArray(doc.Statement) || 
+      typeof doc.Statement === 'object'
+    );
+  }
+
+  /**
+   * Convert IAM statement to normalized permission format
+   */
+  private normalizeStatement(statement: IAMPolicyStatement): PolicyPermission {
+    // Normalize actions
+    const actions = statement.Action 
+      ? (Array.isArray(statement.Action) ? statement.Action : [statement.Action])
+      : (statement.NotAction ? ['*'] : ['*']);
+    
+    // Normalize resources
+    const resources = statement.Resource
+      ? (Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource])
+      : (statement.NotResource ? ['*'] : ['*']);
+    
+    return {
+      effect: statement.Effect || 'Allow',
+      actions,
+      resources,
+      conditions: statement.Condition as Record<string, unknown> | undefined
+    };
+  }
+
+  /**
    * Parse policy document and extract permissions
    */
   private async parsePolicyDocument(policyDocument: string): Promise<PolicyPermission[]> {
@@ -173,28 +210,22 @@ export class UserService {
     }
     
     // Parse JSON
-    const parseResult = safeSyncOperation(() => JSON.parse(decodeResult.data));
+    const parseResult = safeSyncOperation<unknown>(() => JSON.parse(decodeResult.data));
     if (!parseResult.success) {
       console.warn('Failed to parse policy document:', parseResult.error);
       return [];
     }
     
-    const policy = parseResult.data;
-    
-    // Guard against missing or invalid Statement property
-    if (!policy.Statement) {
-      console.warn('Policy document has no Statement property');
+    // Validate policy document structure
+    if (!this.isValidPolicyDocument(parseResult.data)) {
+      console.warn('Invalid policy document structure - missing Statement property');
       return [];
     }
     
+    const policy = parseResult.data;
     const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
     
-    return statements.map((statement: any) => ({
-      effect: statement.Effect || 'Allow',
-      actions: Array.isArray(statement.Action) ? statement.Action : [statement.Action || '*'],
-      resources: Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource || '*'],
-      conditions: statement.Condition
-    }));
+    return statements.map(statement => this.normalizeStatement(statement));
   }
 
   /**

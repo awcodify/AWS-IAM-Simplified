@@ -11,11 +11,27 @@ import {
   SENSITIVE_SERVICES,
   HIGH_PRIVILEGE_POLICIES
 } from '@/types/risk-analysis';
-import type { OrganizationUser, PermissionSetDetails } from '@/types/aws';
+import type { OrganizationUser, PermissionSetDetails, IAMPolicyDocument, IAMPolicyStatement } from '@/types/aws';
+import { safeSyncOperation } from '@/lib/result';
 
 export class IAMRiskAnalyzer {
   private generateFindingId(): string {
     return `finding-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Type guard to check if value is a valid IAM Policy Document
+   */
+  private isValidPolicyDocument(value: unknown): value is IAMPolicyDocument {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    
+    const doc = value as Record<string, unknown>;
+    return 'Statement' in doc && (
+      Array.isArray(doc.Statement) || 
+      typeof doc.Statement === 'object'
+    );
   }
 
   /**
@@ -322,13 +338,8 @@ export class IAMRiskAnalyzer {
     const dataAccessPermissions: string[] = [];
     const servicePermissions: Record<string, string[]> = {};
 
-    const parseResult = await Promise.resolve(policyDocument)
-      .then(doc => JSON.parse(doc))
-      .then(parsed => ({ success: true, data: parsed }))
-      .catch(error => ({ 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error) 
-      }));
+    // Parse JSON safely
+    const parseResult = safeSyncOperation<unknown>(() => JSON.parse(policyDocument));
 
     if (!parseResult.success) {
       findings.push({
@@ -342,7 +353,7 @@ export class IAMRiskAnalyzer {
         recommendation: 'Fix JSON syntax errors in policy document',
         resourceType: 'POLICY',
         resourceName: policyName,
-        details: { error: 'error' in parseResult ? parseResult.error : 'Unknown error' },
+        details: { error: parseResult.error.message },
         createdAt: new Date()
       });
       
@@ -359,21 +370,54 @@ export class IAMRiskAnalyzer {
       };
     }
 
-    const policy = 'data' in parseResult ? parseResult.data : null;
+    // Validate policy document structure
+    if (!this.isValidPolicyDocument(parseResult.data)) {
+      findings.push({
+        id: this.generateFindingId(),
+        title: 'Invalid Policy Document Structure',
+        description: 'Policy document is missing required Statement property',
+        riskLevel: 'HIGH' as RiskLevel,
+        category: 'SECURITY_MISCONFIGURATION' as RiskCategory,
+        severity: 8,
+        impact: 'Policy may not function as expected',
+        recommendation: 'Ensure policy document has valid Statement array',
+        resourceType: 'POLICY',
+        resourceName: policyName,
+        details: { error: 'Missing Statement property' },
+        createdAt: new Date()
+      });
+      
+      return {
+        policyName,
+        policyDocument: null,
+        findings,
+        permissionsCount: 0,
+        wildcardActionsCount: 0,
+        adminPermissions: false,
+        crossAccountAccess: false,
+        dataAccessPermissions: [],
+        servicePermissions: {}
+      };
+    }
 
-    const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
+    const policy = parseResult.data;
+    const statements: IAMPolicyStatement[] = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
     let totalPermissions = 0;
 
     for (const statement of statements) {
       if (statement.Effect !== 'Allow') continue;
 
-      const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
-      const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
+      const actions = statement.Action 
+        ? (Array.isArray(statement.Action) ? statement.Action : [statement.Action])
+        : [];
+      const resources = statement.Resource
+        ? (Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource])
+        : [];
 
       totalPermissions += actions.length;
 
       // Check for wildcard actions
-      const wildcardActions = actions.filter((action: string) => action === '*' || action.endsWith(':*'));
+      const wildcardActions = actions.filter((action) => action === '*' || action.endsWith(':*'));
       wildcardActionsCount += wildcardActions.length;
 
       // Check for admin permissions
