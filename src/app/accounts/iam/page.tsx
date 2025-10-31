@@ -62,6 +62,16 @@ function IAMContent() {
     user.user.Emails.some(email => email.Value?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Calculate group policies count for display
+  const getGroupPoliciesLabel = () => {
+    if (!permissions) return '';
+    const groupPoliciesCount = permissions.groups.reduce(
+      (sum, g) => sum + (g.attachedPolicies?.length || 0) + (g.inlinePolicies?.length || 0), 
+      0
+    );
+    return groupPoliciesCount > 0 ? ` (${groupPoliciesCount} policies)` : '';
+  };
+
   return (
     <PageLayout>
       <div className="space-y-6">
@@ -421,14 +431,7 @@ function IAMContent() {
                                     {permissions.groups.length}
                                   </p>
                                   <p className="text-[10px] text-emerald-700 font-medium">
-                                    Groups
-                                    {(() => {
-                                      const groupPoliciesCount = permissions.groups.reduce(
-                                        (sum, g) => sum + (g.attachedPolicies?.length || 0) + (g.inlinePolicies?.length || 0), 
-                                        0
-                                      );
-                                      return groupPoliciesCount > 0 ? ` (${groupPoliciesCount} policies)` : '';
-                                    })()}
+                                    Groups{getGroupPoliciesLabel()}
                                   </p>
                                 </div>
                               </div>
