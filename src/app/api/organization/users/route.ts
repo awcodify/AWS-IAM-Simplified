@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { SimplifiedAWSService } from '@/lib/aws-services';
+import { AWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
 import type { OrganizationUsersResponse } from '@/types/aws';
 
@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<NextResponse<OrganizationUs
     }, { status: 401 });
   }
   
-  const awsService = new SimplifiedAWSService(region, credentials);
+  const awsService = new AWSService(region, credentials);
   
   // Test connection first
   const connectionResult = await awsService.testConnection().then(

@@ -11,9 +11,9 @@ export { UserService } from './user-service';
 export { AccountService, type AWSCredentials } from './account-service';
 
 /**
- * Simplified main AWS service that orchestrates other services
+ * Main AWS service that orchestrates other services
  */
-export class SimplifiedAWSService {
+export class AWSService {
   private ssoService: SSOService;
   private organizationService: OrganizationService;
   private userService: UserService;
