@@ -1,12 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { DEFAULT_AWS_REGION, DEFAULT_IDENTITY_CENTER_REGION } from '@/constants/regions';
 
 interface RegionContextType {
   awsRegion: string;
-  ssoRegion: string;
+  identityCenterRegion: string;
   setAwsRegion: (region: string) => void;
-  // SSO region comes from env, so no setter needed
+  setIdentityCenterRegion: (region: string) => void;
 }
 
 const RegionContext = createContext<RegionContextType | undefined>(undefined);
@@ -16,19 +17,25 @@ interface RegionProviderProps {
 }
 
 export function RegionProvider({ children }: RegionProviderProps) {
-  // Initialize with environment defaults and localStorage
+  // Initialize AWS Operations region with localStorage fallback
   const [awsRegion, setAwsRegionState] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('aws-region');
       if (saved) return saved;
     }
-    return process.env.NEXT_PUBLIC_AWS_DEFAULT_REGION || 'us-east-1';
+    return process.env.NEXT_PUBLIC_AWS_DEFAULT_REGION || DEFAULT_AWS_REGION;
   });
 
-  // SSO region defaults to same as AWS region (can be overridden by env var)
-  const ssoRegion = process.env.NEXT_PUBLIC_AWS_SSO_REGION || awsRegion;
+  // Initialize Identity Center region with localStorage fallback
+  const [identityCenterRegion, setIdentityCenterRegionState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('identity-center-region');
+      if (saved) return saved;
+    }
+    return process.env.NEXT_PUBLIC_AWS_SSO_REGION || DEFAULT_IDENTITY_CENTER_REGION;
+  });
 
-  // Persist AWS region to localStorage
+  // Persist AWS Operations region to localStorage
   const setAwsRegion = (region: string) => {
     setAwsRegionState(region);
     if (typeof window !== 'undefined') {
@@ -36,10 +43,19 @@ export function RegionProvider({ children }: RegionProviderProps) {
     }
   };
 
+  // Persist Identity Center region to localStorage
+  const setIdentityCenterRegion = (region: string) => {
+    setIdentityCenterRegionState(region);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('identity-center-region', region);
+    }
+  };
+
   const value: RegionContextType = {
     awsRegion,
-    ssoRegion,
+    identityCenterRegion,
     setAwsRegion,
+    setIdentityCenterRegion,
   };
 
   return (
@@ -54,7 +70,12 @@ export function useRegion() {
   if (context === undefined) {
     throw new Error('useRegion must be used within a RegionProvider');
   }
-  return context;
+  
+  // Return with backward compatibility alias
+  return {
+    ...context,
+    ssoRegion: context.identityCenterRegion, // Backward compatibility
+  };
 }
 
 export default RegionContext;

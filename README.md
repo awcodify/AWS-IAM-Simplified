@@ -83,22 +83,41 @@ cp .env.example .env.local
 
 ### Environment Configuration
 
-The application uses environment variables for configuration. Copy `.env.example` to `.env.local` and configure:
+The application supports two types of region configuration:
+
+1. **AWS Operations Region**: Used for IAM, Organizations, and general AWS service calls
+2. **IAM Identity Center Region**: Used for Identity Center (SSO) operations
+
+#### Option 1: Configure via Environment Variables (Optional)
+
+Create a `.env.local` file:
 
 ```bash
 # AWS Profile (if using AWS CLI profiles)
 AWS_PROFILE=your-aws-profile-name
 
-# IAM Identity Center region (typically doesn't change)
+# Default IAM Identity Center region (optional - can be changed in UI)
 NEXT_PUBLIC_AWS_SSO_REGION=us-east-1
 
-# Default AWS region (can be changed in UI)
+# Default AWS Operations region (optional - can be changed in UI)
 NEXT_PUBLIC_AWS_DEFAULT_REGION=us-east-1
 ```
 
+#### Option 2: Configure via Settings Page (Recommended)
+
+Both regions can be configured directly in the application:
+
+1. Login to the application
+2. Navigate to **Settings** → **Regions** tab
+3. Configure both:
+   - **AWS Operations Region**: Primary region for IAM and Organizations
+   - **IAM Identity Center Region**: Region where your Identity Center is deployed
+
 **Important Notes:**
-- `NEXT_PUBLIC_AWS_SSO_REGION`: Set this to the region where your IAM Identity Center is configured. This is typically set once and doesn't change.
-- `NEXT_PUBLIC_AWS_DEFAULT_REGION`: The default AWS region for operations. Users can override this in the UI.
+- Both regions are saved in your browser's localStorage and persist across sessions
+- The **Identity Center Region** must match where your IAM Identity Center is actually deployed
+- The **AWS Operations Region** can be changed based on your needs
+- During login, you'll select the AWS Operations region (all 21 AWS regions available)
 
 3. Run the development server:
 ```bash
