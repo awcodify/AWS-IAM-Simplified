@@ -39,8 +39,51 @@ All documentation has been updated and reorganized into a structured `docs/` fol
 - ⏳ AccountService: 7 tests (4 passing, 3 need mock fixes)
 - ⏳ Target: >20% overall coverage for Phase 2 completion
 
-**Status:** Phase 2 is ~30% complete  
-**Next:** Create generic cache hook, refactor large functions, expand test coverage
+**Status:** Phase 2 is ~60% complete  
+**Next:** Expand test coverage for refactored services, update project analysis
+
+**Large Function Refactoring:**
+- ✅ Refactored `UserService.getIAMUserPermissions()` (124 → 23 lines)
+  - Extracted `fetchUserDetails()` - Get IAM user details
+  - Extracted `fetchUserAttachedPolicies()` - Fetch managed policies
+  - Extracted `fetchUserInlinePolicies()` - Fetch inline policies with parsing
+  - Extracted `fetchUserGroupsWithPolicies()` - Fetch groups with policies
+  - Parallel fetching of all components for better performance
+  - Improved readability and maintainability
+  - All logic preserved, zero behavior changes
+- ✅ Refactored `SSOService.getBulkUserAccountAccess()` (120 → 17 lines)
+  - Extracted `initializeUserAccessMap()` - Initialize empty access map
+  - Extracted `fetchAndProcessUserAssignments()` - Fetch assignments
+  - Extracted `groupAssignmentsByAccount()` - Group by account ID
+  - Extracted `updateUserAccessWithAssignments()` - Update access map
+  - Extracted `enhanceWithPermissionSetNames()` - Add permission set names
+  - Extracted `fetchPermissionSetNamesSample()` - Fetch sample names
+  - Clear separation of concerns, each helper has single responsibility
+  - All 45 tests still passing ✅
+
+**Generic Cache Hook Implementation:**
+- ✅ Created `src/hooks/useCachedData.ts` - Generic caching hook (320 lines)
+  - TTL-based caching with configurable expiration
+  - Promise deduplication prevents concurrent duplicate requests
+  - Namespace isolation for different data types
+  - Manual invalidation support
+  - Refetch on-demand capability
+  - Comprehensive test suite: 13 tests (all passing ✅)
+  - Type-safe with TypeScript generics
+- ✅ Refactored `useAccountInfo` to use generic cache hook
+  - 112 → 35 lines (-77 lines, -69% reduction)
+  - Uses `ACCOUNT_INFO_CACHE_TTL` constant
+  - Eliminates duplicate caching logic
+- ✅ Refactored `usePermissionSets` to use generic cache hook
+  - 103 → 39 lines (-64 lines, -62% reduction)
+  - Composite cache key from region + ssoRegion
+  - Eliminates duplicate caching logic
+- ✅ Refactored `useOrganizationAccounts` to use generic cache hook
+  - 95 → 37 lines (-58 lines, -61% reduction)
+  - Eliminates duplicate caching logic
+- **Total code reduction:** 199 lines eliminated (64% reduction in these hooks)
+
+**Status:** Phase 2 is ~60% complete
 
 ---
 

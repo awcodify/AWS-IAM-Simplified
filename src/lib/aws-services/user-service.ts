@@ -280,7 +280,34 @@ export class UserService {
    * Get comprehensive IAM user permissions including policies and groups
    */
   async getIAMUserPermissions(userName: string): Promise<UserPermissions | null> {
-    // Get actual user details first
+    // Get user details
+    const iamUser = await this.fetchUserDetails(userName);
+    if (!iamUser) {
+      return null;
+    }
+
+    // Fetch all user permission components in parallel
+    const [attachedPolicies, inlinePolicies, groupsWithPolicies, accessKeys] = await Promise.all([
+      this.fetchUserAttachedPolicies(userName),
+      this.fetchUserInlinePolicies(userName),
+      this.fetchUserGroupsWithPolicies(userName),
+      this.getAccessKeys(userName)
+    ]);
+
+    return {
+      user: iamUser,
+      attachedPolicies,
+      inlinePolicies,
+      groups: groupsWithPolicies,
+      accessKeys
+    };
+  }
+
+  /**
+   * Fetch IAM user details
+   * @private
+   */
+  private async fetchUserDetails(userName: string): Promise<IAMUser | null> {
     const getUserCommand = new GetUserCommand({ UserName: userName });
     const userResult = await safeAsync(this.iamClient.send(getUserCommand));
     
@@ -289,55 +316,25 @@ export class UserService {
       return null;
     }
 
-    const iamUser: IAMUser = {
+    return {
       UserName: userResult.data.User.UserName!,
       UserId: userResult.data.User.UserId!,
       Arn: userResult.data.User.Arn!,
       CreateDate: userResult.data.User.CreateDate!,
       Path: userResult.data.User.Path!
     };
+  }
 
-    // Get attached managed policies
+  /**
+   * Fetch user's attached managed policies with their permissions
+   * @private
+   */
+  private async fetchUserAttachedPolicies(userName: string): Promise<AttachedPolicy[]> {
     const attachedPoliciesCommand = new ListAttachedUserPoliciesCommand({ 
       UserName: userName 
     });
     const attachedPoliciesResult = await safeAsync(this.iamClient.send(attachedPoliciesCommand));
 
-    // Get inline policies
-    const inlinePoliciesCommand = new ListUserPoliciesCommand({ 
-      UserName: userName 
-    });
-    const inlinePoliciesResult = await safeAsync(this.iamClient.send(inlinePoliciesCommand));
-
-    // Get inline policy documents
-    const inlinePolicyNames = inlinePoliciesResult.success ? (inlinePoliciesResult.data.PolicyNames || []) : [];
-    const inlinePoliciesPromises = inlinePolicyNames.map(async (policyName) => {
-      const policyCommand = new GetUserPolicyCommand({
-        UserName: userName,
-        PolicyName: policyName
-      });
-      const result = await safeAsync(this.iamClient.send(policyCommand));
-      if (!result.success || !result.data.PolicyDocument) {
-        return null;
-      }
-      
-      const parseResult = parsePolicy(result.data.PolicyDocument);
-      const permissions = parseResult.success ? parseResult.data : [];
-      
-      return {
-        PolicyName: policyName,
-        PolicyDocument: result.data.PolicyDocument,
-        permissions
-      } as InlinePolicy;
-    });
-    const inlinePoliciesResults = await Promise.all(inlinePoliciesPromises);
-    const inlinePolicies: InlinePolicy[] = inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
-
-    // Get user groups
-    const groupsCommand = new ListGroupsForUserCommand({ UserName: userName });
-    const groupsResult = await safeAsync(this.iamClient.send(groupsCommand));
-
-    // Get managed policy documents with permissions
     const attachedPoliciesData = attachedPoliciesResult.success 
       ? (attachedPoliciesResult.data.AttachedPolicies || [])
       : [];
@@ -351,7 +348,55 @@ export class UserService {
       };
     });
     
-    const attachedPolicies: AttachedPolicy[] = await Promise.all(attachedPoliciesPromises);
+    return Promise.all(attachedPoliciesPromises);
+  }
+
+  /**
+   * Fetch user's inline policies with their parsed permissions
+   * @private
+   */
+  private async fetchUserInlinePolicies(userName: string): Promise<InlinePolicy[]> {
+    const inlinePoliciesCommand = new ListUserPoliciesCommand({ 
+      UserName: userName 
+    });
+    const inlinePoliciesResult = await safeAsync(this.iamClient.send(inlinePoliciesCommand));
+
+    const inlinePolicyNames = inlinePoliciesResult.success 
+      ? (inlinePoliciesResult.data.PolicyNames || []) 
+      : [];
+    
+    const inlinePoliciesPromises = inlinePolicyNames.map(async (policyName) => {
+      const policyCommand = new GetUserPolicyCommand({
+        UserName: userName,
+        PolicyName: policyName
+      });
+      const result = await safeAsync(this.iamClient.send(policyCommand));
+      
+      if (!result.success || !result.data.PolicyDocument) {
+        return null;
+      }
+      
+      const parseResult = parsePolicy(result.data.PolicyDocument);
+      const permissions = parseResult.success ? parseResult.data : [];
+      
+      return {
+        PolicyName: policyName,
+        PolicyDocument: result.data.PolicyDocument,
+        permissions
+      } as InlinePolicy;
+    });
+    
+    const inlinePoliciesResults = await Promise.all(inlinePoliciesPromises);
+    return inlinePoliciesResults.filter((p): p is InlinePolicy => p !== null);
+  }
+
+  /**
+   * Fetch user's groups with their attached policies
+   * @private
+   */
+  private async fetchUserGroupsWithPolicies(userName: string): Promise<UserGroup[]> {
+    const groupsCommand = new ListGroupsForUserCommand({ UserName: userName });
+    const groupsResult = await safeAsync(this.iamClient.send(groupsCommand));
 
     const groups: UserGroup[] = groupsResult.success
       ? (groupsResult.data.Groups || []).map(group => ({
@@ -363,7 +408,7 @@ export class UserService {
       : [];
 
     // Fetch policies for each group
-    const groupsWithPolicies = await Promise.all(
+    return Promise.all(
       groups.map(async (group) => {
         const policies = await this.getGroupPolicies(group.GroupName);
         return {
@@ -373,14 +418,6 @@ export class UserService {
         };
       })
     );
-
-    return {
-      user: iamUser,
-      attachedPolicies,
-      inlinePolicies,
-      groups: groupsWithPolicies,
-      accessKeys: await this.getAccessKeys(userName)
-    };
   }
 
   /**
