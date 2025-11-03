@@ -22,6 +22,7 @@ import { safeAsync, safeSyncOperation } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 import { DEFAULT_AWS_REGION } from '@/constants/api';
 import { logger } from '@/lib/logger';
+import { parsePolicyDocument as parsePolicy } from '@/lib/utils/policy-parser';
 
 /**
  * Simplified service for user management operations
@@ -164,73 +165,6 @@ export class UserService {
   }
 
   /**
-   * Type guard to check if value is a valid IAM Policy Document
-   */
-  private isValidPolicyDocument(value: unknown): value is IAMPolicyDocument {
-    if (!value || typeof value !== 'object') {
-      return false;
-    }
-    
-    const doc = value as Record<string, unknown>;
-    return 'Statement' in doc && (
-      Array.isArray(doc.Statement) || 
-      typeof doc.Statement === 'object'
-    );
-  }
-
-  /**
-   * Convert IAM statement to normalized permission format
-   */
-  private normalizeStatement(statement: IAMPolicyStatement): PolicyPermission {
-    // Normalize actions
-    const actions = statement.Action 
-      ? (Array.isArray(statement.Action) ? statement.Action : [statement.Action])
-      : (statement.NotAction ? ['*'] : ['*']);
-    
-    // Normalize resources
-    const resources = statement.Resource
-      ? (Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource])
-      : (statement.NotResource ? ['*'] : ['*']);
-    
-    return {
-      effect: statement.Effect || 'Allow',
-      actions,
-      resources,
-      conditions: statement.Condition as Record<string, unknown> | undefined
-    };
-  }
-
-  /**
-   * Parse policy document and extract permissions
-   */
-  private async parsePolicyDocument(policyDocument: string): Promise<PolicyPermission[]> {
-    // Decode URI component
-    const decodeResult = safeSyncOperation(() => decodeURIComponent(policyDocument));
-    if (!decodeResult.success) {
-      console.warn('Failed to decode policy document:', decodeResult.error);
-      return [];
-    }
-    
-    // Parse JSON
-    const parseResult = safeSyncOperation<unknown>(() => JSON.parse(decodeResult.data));
-    if (!parseResult.success) {
-      console.warn('Failed to parse policy document:', parseResult.error);
-      return [];
-    }
-    
-    // Validate policy document structure
-    if (!this.isValidPolicyDocument(parseResult.data)) {
-      console.warn('Invalid policy document structure - missing Statement property');
-      return [];
-    }
-    
-    const policy = parseResult.data;
-    const statements = Array.isArray(policy.Statement) ? policy.Statement : [policy.Statement];
-    
-    return statements.map(statement => this.normalizeStatement(statement));
-  }
-
-  /**
    * Get managed policy document
    */
   private async getManagedPolicyDocument(policyArn: string): Promise<PolicyPermission[]> {
@@ -253,7 +187,16 @@ export class UserService {
       return [];
     }
 
-    return await this.parsePolicyDocument(versionResult.data.PolicyVersion.Document);
+    const parseResult = parsePolicy(versionResult.data.PolicyVersion.Document);
+    if (!parseResult.success) {
+      logger.warn('Failed to parse managed policy document', { 
+        policyArn, 
+        error: parseResult.error.message 
+      });
+      return [];
+    }
+    
+    return parseResult.data;
   }
 
   /**
@@ -306,7 +249,8 @@ export class UserService {
           return null;
         }
 
-        const permissions = await this.parsePolicyDocument(result.data.PolicyDocument);
+        const parseResult = parsePolicy(result.data.PolicyDocument);
+        const permissions = parseResult.success ? parseResult.data : [];
 
         return {
           PolicyName: policyName,
@@ -377,7 +321,8 @@ export class UserService {
         return null;
       }
       
-      const permissions = await this.parsePolicyDocument(result.data.PolicyDocument);
+      const parseResult = parsePolicy(result.data.PolicyDocument);
+      const permissions = parseResult.success ? parseResult.data : [];
       
       return {
         PolicyName: policyName,
