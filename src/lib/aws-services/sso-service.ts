@@ -15,6 +15,7 @@ import { Optional } from '@/lib/optional';
 import { isThrottlingError } from '@/lib/utils/error-guards';
 import type { AWSCredentials } from './account-service';
 import { API_MAX_RETRIES, API_INITIAL_RETRY_DELAY, DEFAULT_AWS_REGION } from '@/constants/api';
+import { logger } from '@/lib/logger';
 
 /**
  * Simplified service for SSO-related operations
@@ -59,7 +60,11 @@ export class SSOService {
       if (isThrottlingError(result.error)) {
         if (attempt < maxRetries) {
           const delayMs = initialDelay * Math.pow(2, attempt);
-          console.log(`Throttled, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+          logger.warn('AWS API throttled, retrying with exponential backoff', {
+            delayMs,
+            attempt: attempt + 1,
+            maxRetries
+          });
           await this.delay(delayMs);
           continue;
         }
@@ -81,7 +86,7 @@ export class SSOService {
     const result = await safeAsync(this.ssoAdminClient.send(command));
     
     if (!result.success) {
-      console.warn('Could not list SSO instances:', result.error);
+      logger.warn('Could not list SSO instances', {}, result.error);
       return [];
     }
     
@@ -100,7 +105,7 @@ export class SSOService {
     const result = await safeAsync(this.ssoAdminClient.send(command));
     
     if (!result.success) {
-      console.warn(`Could not list permission sets for ${instanceArn}:`, result.error);
+      logger.warn('Could not list permission sets', { instanceArn }, result.error);
       return [];
     }
     
