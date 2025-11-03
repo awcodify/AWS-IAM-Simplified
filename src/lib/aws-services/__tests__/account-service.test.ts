@@ -43,13 +43,20 @@ describe('AccountService', () => {
         UserId: 'AIDAI1234567890ABCDEF',
         Arn: 'arn:aws:iam::123456789012:user/testuser',
       };
-      mockSTSClient.send = jest.fn().mockResolvedValue(mockIdentity);
 
-      // Mock ListAccountAliases response
-      const mockAliases = {
-        AccountAliases: ['my-test-account'],
+      // Mock DescribeAccount response (Organizations)
+      const mockOrgAccount = {
+        Account: {
+          Id: '123456789012',
+          Name: 'My Test Account',
+          Email: 'test@example.com',
+          Status: 'ACTIVE',
+        },
       };
-      mockIAMClient.send = jest.fn().mockResolvedValue(mockAliases);
+
+      // Setup mock responses
+      mockSTSClient.send = jest.fn().mockResolvedValueOnce(mockIdentity);
+      mockOrganizationsClient.send = jest.fn().mockResolvedValueOnce(mockOrgAccount);
 
       const result = await accountService.getAccountInfo();
 
@@ -58,7 +65,7 @@ describe('AccountService', () => {
         expect(result.data.accountId).toBe('123456789012');
         expect(result.data.userId).toBe('AIDAI1234567890ABCDEF');
         expect(result.data.arn).toBe('arn:aws:iam::123456789012:user/testuser');
-        expect(result.data.accountName).toBe('my-test-account');
+        expect(result.data.accountName).toBe('My Test Account');
       }
     });
 
@@ -68,12 +75,16 @@ describe('AccountService', () => {
         UserId: 'AIDAI1234567890ABCDEF',
         Arn: 'arn:aws:iam::123456789012:user/testuser',
       };
-      mockSTSClient.send = jest.fn().mockResolvedValue(mockIdentity);
 
+      // Organizations call fails
+      mockSTSClient.send = jest.fn().mockResolvedValueOnce(mockIdentity);
+      mockOrganizationsClient.send = jest.fn().mockRejectedValueOnce(new Error('Not in org'));
+
+      // IAM call returns empty aliases
       const mockAliases = {
         AccountAliases: [],
       };
-      mockIAMClient.send = jest.fn().mockResolvedValue(mockAliases);
+      mockIAMClient.send = jest.fn().mockResolvedValueOnce(mockAliases);
 
       const result = await accountService.getAccountInfo();
 
@@ -100,8 +111,11 @@ describe('AccountService', () => {
         UserId: 'AIDAI1234567890ABCDEF',
         Arn: 'arn:aws:iam::123456789012:user/testuser',
       };
-      mockSTSClient.send = jest.fn().mockResolvedValue(mockIdentity);
-      mockIAMClient.send = jest.fn().mockRejectedValue(new Error('IAM Error'));
+
+      // Both Organizations and IAM calls fail
+      mockSTSClient.send = jest.fn().mockResolvedValueOnce(mockIdentity);
+      mockOrganizationsClient.send = jest.fn().mockRejectedValueOnce(new Error('Org Error'));
+      mockIAMClient.send = jest.fn().mockRejectedValueOnce(new Error('IAM Error'));
 
       const result = await accountService.getAccountInfo();
 
