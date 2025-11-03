@@ -8,6 +8,7 @@ import { safeAsync } from '@/lib/result';
 import { Optional } from '@/lib/optional';
 import type { AWSCredentials } from './account-service';
 import { DEFAULT_AWS_REGION } from '@/constants/api';
+import { logger } from '@/lib/logger';
 
 /**
  * Simplified service for AWS Organizations operations
@@ -30,7 +31,7 @@ export class OrganizationService {
     const result = await safeAsync(this.organizationsClient.send(command));
     
     if (!result.success) {
-      console.warn('Could not list organization accounts:', result.error);
+      logger.warn('Could not list organization accounts', {}, result.error);
       return [];
     }
     
@@ -51,7 +52,7 @@ export class OrganizationService {
     const result = await safeAsync(this.organizationsClient.send(command));
     
     if (!result.success) {
-      console.warn('Could not get organization info:', result.error);
+      logger.warn('Could not get organization info', {}, result.error);
       return null;
     }
     

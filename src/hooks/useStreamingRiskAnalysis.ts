@@ -3,6 +3,7 @@ import { createAuthHeaders } from '@/lib/credentials';
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { PermissionSetDetails } from '@/types/aws';
 import ScanSessionManager from '@/lib/scan-session-manager';
+import { logger } from '@/lib/logger';
 
 // Event data interfaces
 interface StartEventData {
@@ -102,13 +103,13 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
   ) => {
     // Check if we can start a new scan
     if (!sessionManager.canStartNewScan(permissionSets, region, ssoRegion)) {
-      console.log('Scan already in progress with same parameters, connecting to existing scan');
+      logger.info('Scan already in progress, connecting to existing scan');
       return;
     }
 
     // Start new scan session
     const sessionId = sessionManager.startNewScan(permissionSets, region, ssoRegion);
-    console.log('Started new scan session:', sessionId);
+    logger.info('Started new scan session', { sessionId });
 
     try {
       const response = await fetch('/api/risk-analysis/stream', {
@@ -156,7 +157,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
           if (line.startsWith('event:')) {
             // Event type line - store it for the next data line
             currentEventType = line.substring(6).trim();
-            console.log('Event type:', currentEventType);
+            logger.debug('SSE event type received', { eventType: currentEventType });
           } else if (line.startsWith('data:')) {
             // Data line - process using the stored event type
             const eventData = line.substring(5).trim();
@@ -166,7 +167,7 @@ export function useStreamingRiskAnalysis(): UseStreamingRiskAnalysisResult {
             try {
               data = JSON.parse(eventData);
             } catch {
-              console.warn('Failed to parse event data:', eventData);
+              logger.warn('Failed to parse SSE event data', { eventData });
               continue;
             }
 
