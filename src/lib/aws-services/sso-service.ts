@@ -282,9 +282,28 @@ export class SSOService {
   ): Promise<Map<string, CrossAccountUserAccess[]>> {
     logger.info('Getting bulk account access for users', { userCount: userIds.length });
     
+    // Initialize access map for all users
+    const userAccessMap = this.initializeUserAccessMap(userIds, accounts);
+    
+    // Fetch and process assignments for all users
+    await this.fetchAndProcessUserAssignments(userIds, instanceArn, userAccessMap);
+    
+    // Enhance with permission set names (sample only for performance)
+    await this.enhanceWithPermissionSetNames(instanceArn, userAccessMap);
+    
+    return userAccessMap;
+  }
+
+  /**
+   * Initialize user access map with empty access for all accounts
+   * @private
+   */
+  private initializeUserAccessMap(
+    userIds: string[], 
+    accounts: OrganizationAccount[]
+  ): Map<string, CrossAccountUserAccess[]> {
     const userAccessMap = new Map<string, CrossAccountUserAccess[]>();
     
-    // Initialize all users with empty access
     userIds.forEach(userId => {
       userAccessMap.set(userId, accounts.map(account => ({
         accountId: account.id,
@@ -295,7 +314,18 @@ export class SSOService {
       })));
     });
     
-    // Fetch assignments for all users in parallel
+    return userAccessMap;
+  }
+
+  /**
+   * Fetch account assignments for all users and update the access map
+   * @private
+   */
+  private async fetchAndProcessUserAssignments(
+    userIds: string[],
+    instanceArn: string,
+    userAccessMap: Map<string, CrossAccountUserAccess[]>
+  ): Promise<void> {
     const assignmentPromises = userIds.map(async (userId) => {
       const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
         InstanceArn: instanceArn,
@@ -314,25 +344,10 @@ export class SSOService {
       logger.debug('Found account assignments for user', { userId, assignmentCount: assignments.length });
       
       // Group assignments by account ID for this user
-      const accountAssignments = new Map<string, string[]>();
-      assignments.forEach((assignment) => {
-        if (assignment.AccountId && assignment.PermissionSetArn) {
-          const accountId = assignment.AccountId;
-          const existingRoles = accountAssignments.get(accountId) || [];
-          existingRoles.push(assignment.PermissionSetArn);
-          accountAssignments.set(accountId, existingRoles);
-        }
-      });
+      const accountAssignments = this.groupAssignmentsByAccount(assignments);
       
       // Update the user's access map
-      const userAccess = userAccessMap.get(userId) || [];
-      userAccess.forEach(access => {
-        const roles = accountAssignments.get(access.accountId) || [];
-        if (roles.length > 0) {
-          access.hasAccess = true;
-          access.roles = roles;
-        }
-      });
+      this.updateUserAccessWithAssignments(userId, accountAssignments, userAccessMap);
       
       return { userId, success: true };
     });
@@ -343,11 +358,59 @@ export class SSOService {
       successCount, 
       totalCount: userIds.length 
     });
+  }
+
+  /**
+   * Group account assignments by account ID
+   * @private
+   */
+  private groupAssignmentsByAccount(
+    assignments: Array<{ AccountId?: string; PermissionSetArn?: string }>
+  ): Map<string, string[]> {
+    const accountAssignments = new Map<string, string[]>();
     
-    // Try to enhance with permission set names (sample only for performance)
-    const permissionSetNameMap = new Map<string, string>();
+    assignments.forEach((assignment) => {
+      if (assignment.AccountId && assignment.PermissionSetArn) {
+        const accountId = assignment.AccountId;
+        const existingRoles = accountAssignments.get(accountId) || [];
+        existingRoles.push(assignment.PermissionSetArn);
+        accountAssignments.set(accountId, existingRoles);
+      }
+    });
+    
+    return accountAssignments;
+  }
+
+  /**
+   * Update user access map with account assignments
+   * @private
+   */
+  private updateUserAccessWithAssignments(
+    userId: string,
+    accountAssignments: Map<string, string[]>,
+    userAccessMap: Map<string, CrossAccountUserAccess[]>
+  ): void {
+    const userAccess = userAccessMap.get(userId) || [];
+    
+    userAccess.forEach(access => {
+      const roles = accountAssignments.get(access.accountId) || [];
+      if (roles.length > 0) {
+        access.hasAccess = true;
+        access.roles = roles;
+      }
+    });
+  }
+
+  /**
+   * Enhance user access with permission set names (sampled for performance)
+   * @private
+   */
+  private async enhanceWithPermissionSetNames(
+    instanceArn: string,
+    userAccessMap: Map<string, CrossAccountUserAccess[]>
+  ): Promise<void> {
+    // Collect all unique permission set ARNs
     const uniquePermissionSetArns = new Set<string>();
-    
     userAccessMap.forEach(userAccess => {
       userAccess.forEach(access => {
         if (access.roles) {
@@ -357,6 +420,35 @@ export class SSOService {
     });
     
     logger.debug('Found unique permission sets', { count: uniquePermissionSetArns.size });
+    
+    // Fetch names for a sample to avoid too many API calls
+    const permissionSetNameMap = await this.fetchPermissionSetNamesSample(
+      instanceArn,
+      uniquePermissionSetArns
+    );
+    
+    // Enhance the response with permission set names where available
+    userAccessMap.forEach(userAccess => {
+      userAccess.forEach(access => {
+        if (access.roles) {
+          access.permissionSets = access.roles.map(arn => ({
+            name: permissionSetNameMap.get(arn) || arn.split('/').pop() || arn,
+            arn: arn
+          }));
+        }
+      });
+    });
+  }
+
+  /**
+   * Fetch permission set names for a sample of ARNs
+   * @private
+   */
+  private async fetchPermissionSetNamesSample(
+    instanceArn: string,
+    uniquePermissionSetArns: Set<string>
+  ): Promise<Map<string, string>> {
+    const permissionSetNameMap = new Map<string, string>();
     
     // Only fetch names for a sample to avoid too many API calls
     const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
@@ -381,20 +473,7 @@ export class SSOService {
     });
     
     await Promise.all(namePromises);
-    
-    // Enhance the response with permission set names where available
-    userAccessMap.forEach(userAccess => {
-      userAccess.forEach(access => {
-        if (access.roles) {
-          access.permissionSets = access.roles.map(arn => ({
-            name: permissionSetNameMap.get(arn) || arn.split('/').pop() || arn,
-            arn: arn
-          }));
-        }
-      });
-    });
-    
-    return userAccessMap;
+    return permissionSetNameMap;
   }
 
   /**
