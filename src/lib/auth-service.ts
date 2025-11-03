@@ -4,10 +4,11 @@
 import { SessionInfo, AccessKeyAuthRequest } from '@/types/auth';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { storeCredentials, clearStoredCredentials } from './credentials';
+import { SESSION_TIMEOUT, DEFAULT_AWS_REGION } from '@/constants/api';
 
 export class AuthService {
   private static readonly SESSION_KEY = 'aws-iam-dashboard-session';
-  private static readonly SESSION_TIMEOUT = 60 * 60 * 1000; // 1 hour
+  private static readonly SESSION_TIMEOUT = SESSION_TIMEOUT;
 
   /**
    * Get current session from localStorage
@@ -113,7 +114,7 @@ export class AuthService {
 
     // Test credentials by getting caller identity
     const sts = new STSClient({ 
-      region: request.region || 'us-east-1',
+      region: request.region || DEFAULT_AWS_REGION,
       credentials
     });
 
@@ -125,7 +126,7 @@ export class AuthService {
       accountId: identity.Account,
       userId: identity.UserId,
       userName: identity.Arn?.split('/').pop() || 'Unknown',
-      region: request.region || 'us-east-1',
+      region: request.region || DEFAULT_AWS_REGION,
       expiresAt: new Date(Date.now() + this.SESSION_TIMEOUT)
     };
 

@@ -14,6 +14,7 @@ import { safeAsync, type Result } from '@/lib/result';
 import { Optional } from '@/lib/optional';
 import { isThrottlingError } from '@/lib/utils/error-guards';
 import type { AWSCredentials } from './account-service';
+import { API_MAX_RETRIES, API_INITIAL_RETRY_DELAY, DEFAULT_AWS_REGION } from '@/constants/api';
 
 /**
  * Simplified service for SSO-related operations
@@ -23,7 +24,7 @@ export class SSOService {
 
   constructor(region?: string, credentials?: AWSCredentials) {
     this.ssoAdminClient = new SSOAdminClient({ 
-      region: region || process.env.AWS_REGION || 'us-east-1',
+      region: region || process.env.AWS_REGION || DEFAULT_AWS_REGION,
       credentials: credentials || undefined
     });
   }
@@ -40,8 +41,8 @@ export class SSOService {
    */
   private async retryWithBackoff<T>(
     fn: () => Promise<T>,
-    maxRetries = 3,
-    initialDelay = 1000
+    maxRetries = API_MAX_RETRIES,
+    initialDelay = API_INITIAL_RETRY_DELAY
   ): Promise<Result<T, Error>> {
     let lastError: Error | undefined;
     

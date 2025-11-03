@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRegion } from '@/contexts/RegionContext';
 import { createAuthHeaders } from '@/lib/credentials';
 import type { AccountInfo } from '@/types/aws';
+import { ACCOUNT_INFO_CACHE_TTL } from '@/constants/api';
 
 // Cache TTL in milliseconds (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = ACCOUNT_INFO_CACHE_TTL;
 
 // Shared cache for account info with timestamps
 interface CacheEntry {

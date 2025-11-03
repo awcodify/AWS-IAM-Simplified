@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { UserService } from '@/lib/aws-services/user-service';
 import { AccountService } from '@/lib/aws-services/account-service';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
+import { DEFAULT_AWS_REGION } from '@/constants/api';
 
 /**
  * GET /api/iam/users
@@ -9,7 +10,7 @@ import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const region = searchParams.get('region') || 'us-east-1';
+  const region = searchParams.get('region') || DEFAULT_AWS_REGION;
 
   // Extract credentials from headers
   const credentials = extractCredentialsFromHeaders(request);

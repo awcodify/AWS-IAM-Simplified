@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AWSService } from '@/lib/aws-services';
 import { extractCredentialsFromHeaders } from '@/lib/auth-helpers';
+import { DEFAULT_AWS_REGION } from '@/constants/api';
 
 export async function GET(request: Request) {
   // Extract credentials from headers
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
   }
   
   // Pass credentials to the AWS service
-  const awsService = new AWSService('us-east-1', credentials);
+  const awsService = new AWSService(DEFAULT_AWS_REGION, credentials);
   
   try {
     const accountInfo = await awsService.getAccountInfo();
