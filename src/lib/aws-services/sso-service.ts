@@ -140,7 +140,7 @@ export class SSOService {
     );
     
     if (!result.success) {
-      console.warn(`Could not get details for permission set ${permissionSetArn}:`, result.error);
+      logger.warn('Could not get permission set details', { permissionSetArn }, result.error);
       return null;
     }
     
@@ -160,7 +160,7 @@ export class SSOService {
     const describeResult = await safeAsync(this.ssoAdminClient.send(describeCommand));
     
     if (!describeResult.success) {
-      console.warn(`Failed to describe permission set ${permissionSetArn}:`, describeResult.error);
+      logger.warn('Failed to describe permission set', { permissionSetArn }, describeResult.error);
       return null;
     }
     
@@ -219,7 +219,7 @@ export class SSOService {
     instanceArn: string, 
     accounts: OrganizationAccount[]
   ): Promise<CrossAccountUserAccess[]> {
-    console.log(`Getting account access for user: ${userId}`);
+    logger.debug('Getting account access for user', { userId });
     
     const assignmentsCommand = new ListAccountAssignmentsForPrincipalCommand({
       InstanceArn: instanceArn,
@@ -230,7 +230,7 @@ export class SSOService {
     const result = await safeAsync(this.ssoAdminClient.send(assignmentsCommand));
     
     if (!result.success) {
-      console.error(`Error getting account access for user ${userId}:`, result.error);
+      logger.error('Error getting account access for user', { userId }, result.error);
       return accounts.map(account => ({
         accountId: account.id,
         accountName: account.name,
@@ -241,7 +241,7 @@ export class SSOService {
     }
     
     const assignments = result.data.AccountAssignments || [];
-    console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+    logger.debug('Found account assignments for user', { userId, assignmentCount: assignments.length });
     
     // Group assignments by account ID
     const accountAssignments = new Map<string, string[]>();
@@ -280,7 +280,7 @@ export class SSOService {
     instanceArn: string, 
     accounts: OrganizationAccount[]
   ): Promise<Map<string, CrossAccountUserAccess[]>> {
-    console.log(`Getting account access for ${userIds.length} users in bulk`);
+    logger.info('Getting bulk account access for users', { userCount: userIds.length });
     
     const userAccessMap = new Map<string, CrossAccountUserAccess[]>();
     
@@ -306,12 +306,12 @@ export class SSOService {
       const result = await safeAsync(this.ssoAdminClient.send(assignmentsCommand));
       
       if (!result.success) {
-        console.error(`Error getting account assignments for user ${userId}:`, result.error);
+        logger.error('Error getting account assignments for user', { userId }, result.error);
         return { userId, success: false };
       }
       
       const assignments = result.data.AccountAssignments || [];
-      console.log(`Found ${assignments.length} account assignments for user ${userId}`);
+      logger.debug('Found account assignments for user', { userId, assignmentCount: assignments.length });
       
       // Group assignments by account ID for this user
       const accountAssignments = new Map<string, string[]>();
@@ -339,7 +339,10 @@ export class SSOService {
     
     const results = await Promise.all(assignmentPromises);
     const successCount = results.filter(r => r.success).length;
-    console.log(`Successfully fetched access for ${successCount}/${userIds.length} users`);
+    logger.info('Bulk user access fetch completed', { 
+      successCount, 
+      totalCount: userIds.length 
+    });
     
     // Try to enhance with permission set names (sample only for performance)
     const permissionSetNameMap = new Map<string, string>();
@@ -353,7 +356,7 @@ export class SSOService {
       });
     });
     
-    console.log(`Found ${uniquePermissionSetArns.size} unique permission sets`);
+    logger.debug('Found unique permission sets', { count: uniquePermissionSetArns.size });
     
     // Only fetch names for a sample to avoid too many API calls
     const sampleArns = Array.from(uniquePermissionSetArns).slice(0, 10);
@@ -366,7 +369,7 @@ export class SSOService {
       const result = await safeAsync(this.ssoAdminClient.send(describeCommand));
       
       if (!result.success) {
-        console.log(`Could not fetch name for permission set ${arn}:`, result.error);
+        logger.warn('Could not fetch permission set name', { arn }, result.error);
         return { arn, name: '' };
       }
       
@@ -410,7 +413,7 @@ export class SSOService {
     const result = await safeAsync(this.ssoAdminClient.send(command));
     
     if (!result.success) {
-      console.warn(`Could not get assignments for permission set ${permissionSetArn}:`, result.error);
+      logger.warn('Could not get assignments for permission set', { permissionSetArn }, result.error);
       return [];
     }
     

@@ -3,6 +3,7 @@ import { OrganizationService } from './organization-service';
 import { UserService } from './user-service';
 import { AccountService, type AWSCredentials } from './account-service';
 import type { OrganizationUser, OrganizationAccount, PermissionSetDetails, AccountInfo, CrossAccountUserAccess } from '@/types/aws';
+import { logger } from '@/lib/logger';
 
 // Export individual services for direct use
 export { SSOService } from './sso-service';
@@ -150,7 +151,7 @@ export class AWSService {
     
     const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
-      console.warn('No SSO instances found');
+      logger.warn('No SSO instances found in region', { region: ssoRegion || this.ssoService });
       return [];
     }
 
@@ -167,7 +168,7 @@ export class AWSService {
     
     const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
-      console.warn('No SSO instances found');
+      logger.warn('No SSO instances found for bulk access', { region: ssoRegion });
       return new Map();
     }
 

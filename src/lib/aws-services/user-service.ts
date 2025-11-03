@@ -21,6 +21,7 @@ import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAcc
 import { safeAsync, safeSyncOperation } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
 import { DEFAULT_AWS_REGION } from '@/constants/api';
+import { logger } from '@/lib/logger';
 
 /**
  * Simplified service for user management operations
@@ -52,7 +53,7 @@ export class UserService {
     const result = await safeAsync(this.identityStoreClient.send(command));
     
     if (!result.success) {
-      console.warn(`Could not list Identity Center users for store ${identityStoreId}:`, result.error);
+      logger.warn('Could not list Identity Center users', { identityStoreId }, result.error);
       return [];
     }
     
