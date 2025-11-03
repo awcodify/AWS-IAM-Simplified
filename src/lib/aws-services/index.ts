@@ -151,7 +151,7 @@ export class AWSService {
     
     const ssoInstances = await ssoService.getSSOInstances();
     if (ssoInstances.length === 0) {
-      logger.warn('No SSO instances found in region', { region: ssoRegion || this.ssoService });
+      logger.warn('No SSO instances found in region', { region: ssoRegion || this.region });
       return [];
     }
 
