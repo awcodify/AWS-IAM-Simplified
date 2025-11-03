@@ -1,5 +1,6 @@
 import type { UserRiskProfile } from '@/types/risk-analysis';
 import type { PermissionSetDetails } from '@/types/aws';
+import { SCAN_SESSION_TIMEOUT } from '@/constants/api';
 
 interface ScanSession {
   id: string;
@@ -62,7 +63,7 @@ class ScanSessionManager {
         if (stored) {
           const session = JSON.parse(stored) as ScanSession;
           // Only restore if session is less than 1 hour old
-          if (Date.now() - session.startTime < 60 * 60 * 1000) {
+          if (Date.now() - session.startTime < SCAN_SESSION_TIMEOUT) {
             this.currentSession = session;
           } else {
             sessionStorage.removeItem('riskAnalysisScanSession');

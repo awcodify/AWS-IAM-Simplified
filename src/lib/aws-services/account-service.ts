@@ -6,6 +6,7 @@ import {
 import { IAMClient, ListAccountAliasesCommand } from '@aws-sdk/client-iam';
 import type { AccountInfo } from '@/types/aws';
 import { safeAsync, type Result } from '@/lib/result';
+import { DEFAULT_AWS_REGION } from '@/constants/api';
 
 export interface AWSCredentials {
   accessKeyId: string;
@@ -24,7 +25,7 @@ export class AccountService {
 
   constructor(region?: string, credentials?: AWSCredentials) {
     const config = {
-      region: region || process.env.AWS_REGION || 'us-east-1',
+      region: region || process.env.AWS_REGION || DEFAULT_AWS_REGION,
       credentials: credentials || undefined
     };
     this.stsClient = new STSClient(config);

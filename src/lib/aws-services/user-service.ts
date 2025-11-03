@@ -20,6 +20,7 @@ import {
 import type { IdentityCenterUser, IAMUser, OrganizationUser, CrossAccountUserAccess, UserPermissions, AttachedPolicy, InlinePolicy, UserGroup, PolicyPermission, AccessKey, IAMPolicyDocument, IAMPolicyStatement } from '@/types/aws';
 import { safeAsync, safeSyncOperation } from '@/lib/result';
 import type { AWSCredentials } from './account-service';
+import { DEFAULT_AWS_REGION } from '@/constants/api';
 
 /**
  * Simplified service for user management operations
@@ -29,7 +30,7 @@ export class UserService {
   private iamClient: IAMClient;
 
   constructor(region?: string, credentials?: AWSCredentials) {
-    const regionConfig = region || process.env.AWS_REGION || 'us-east-1';
+    const regionConfig = region || process.env.AWS_REGION || DEFAULT_AWS_REGION;
     this.identityStoreClient = new IdentitystoreClient({ 
       region: regionConfig,
       credentials: credentials || undefined

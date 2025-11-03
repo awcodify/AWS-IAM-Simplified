@@ -7,6 +7,7 @@ import type { OrganizationAccount } from '@/types/aws';
 import { safeAsync } from '@/lib/result';
 import { Optional } from '@/lib/optional';
 import type { AWSCredentials } from './account-service';
+import { DEFAULT_AWS_REGION } from '@/constants/api';
 
 /**
  * Simplified service for AWS Organizations operations
@@ -16,7 +17,7 @@ export class OrganizationService {
 
   constructor(region?: string, credentials?: AWSCredentials) {
     this.organizationsClient = new OrganizationsClient({
-      region: region || process.env.AWS_REGION || 'us-east-1',
+      region: region || process.env.AWS_REGION || DEFAULT_AWS_REGION,
       credentials: credentials || undefined
     });
   }
