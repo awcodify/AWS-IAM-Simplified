@@ -9,6 +9,7 @@ import {
   SENSITIVE_ACTIONS
 } from '@/types/risk-analysis';
 import { safeSyncOperation } from '@/lib/result';
+import { isValidPolicyDocument, parsePolicyObject } from '@/lib/utils/policy-parser';
 
 /**
  * Simple policy analyzer focused on analyzing individual policies
@@ -16,21 +17,6 @@ import { safeSyncOperation } from '@/lib/result';
 export class PolicyAnalyzer {
   private generateFindingId(): string {
     return `finding-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Type guard to check if value is a valid IAM Policy Document
-   */
-  private isValidPolicyDocument(value: unknown): value is IAMPolicyDocument {
-    if (!value || typeof value !== 'object') {
-      return false;
-    }
-    
-    const doc = value as Record<string, unknown>;
-    return 'Statement' in doc && (
-      Array.isArray(doc.Statement) || 
-      typeof doc.Statement === 'object'
-    );
   }
 
   /**
@@ -147,7 +133,7 @@ export class PolicyAnalyzer {
       return null;
     }
     
-    return this.isValidPolicyDocument(result.data) ? result.data : null;
+    return isValidPolicyDocument(result.data) ? result.data : null;
   }
 
   private normalizeToArray(value: unknown): string[] {
